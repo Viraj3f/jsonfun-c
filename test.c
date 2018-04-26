@@ -188,7 +188,8 @@ void test_nesting()
 
 
 int main() {
-    for (int i = 0; i < 1; i++)
+    // Run this many times to test for memory leaks.
+    for (int i = 0; i < 1000000; i++)
     {
         test_construction();
         test_arrays();

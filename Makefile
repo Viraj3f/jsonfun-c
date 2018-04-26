@@ -1,5 +1,9 @@
+CC=clang
+CFLAGS=-W -Wall -Wextra -pedantic
+FILES=test.c json.c
+
 all:
-	cc main.c json.c -o test.out -W -Wall -Wextra -pedantic
+	$(CC) $(FILES) -o test.out $(CFLAGS)
 
 debug:
-	cc -g main.c json.c -o debug.out -W -Wall -Wextra -pedantic
+	$(CC) -g $(FILES) -o debug.out $(CFLAGS)
