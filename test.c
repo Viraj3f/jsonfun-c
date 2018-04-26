@@ -4,6 +4,7 @@
 
 #include "json.h"
 
+
 void test_construction()
 {
     // Initial structure:
@@ -114,13 +115,6 @@ void test_arrays()
     assert(strcmp(jd.data.s, "henlo world") == 0);
 
     free_JsonObject(o);
-
-
-    // Nest that array into another array 
-    // {"hi": [
-    //    [0, -1, true, null],
-    //    {} 
-    // ]}
 }
 
 void test_nesting()
@@ -189,12 +183,25 @@ void test_nesting()
 
 int main() {
     // Run this many times to test for memory leaks.
-    for (int i = 0; i < 1000000; i++)
-    {
-        test_construction();
-        test_arrays();
-        test_nesting();
-    }
+    //const int times = 1;
+    //for (int i = 0; i < times; i++)
+    //{
+    //    test_construction();
+    //    test_arrays();
+    //    test_nesting();
+    //}
+
+    // Statically allocate 1kB for static allocation
+    #define MEMPOOL_SIZE 1024
+    char mempool[MEMPOOL_SIZE];
+    Json_set_mempool(mempool, &mempool[MEMPOOL_SIZE - 1]);
+    test_construction();
+
+    Json_set_mempool(mempool, &mempool[MEMPOOL_SIZE - 1]);
+    test_arrays();
+
+    Json_set_mempool(mempool, &mempool[MEMPOOL_SIZE - 1]);
+    test_nesting();
     
     return 0;
 }

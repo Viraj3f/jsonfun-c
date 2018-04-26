@@ -59,7 +59,7 @@ typedef struct JsonNode
     struct JsonNode* sibling;
     struct JsonNode* child;
     JsonValue* data;
-    char letter;
+    unsigned char letter;
 } JsonNode;
 
 typedef struct JsonObject
@@ -68,6 +68,8 @@ typedef struct JsonObject
     JsonNode node;
     bool isEmpty;
 } JsonObject;
+
+void Json_set_mempool(void * start, void * end);
 
 JsonObject* create_JsonObject(void);
 void free_JsonObject(JsonObject *obj);
