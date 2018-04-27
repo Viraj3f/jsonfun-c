@@ -11,6 +11,7 @@
 
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdint.h>
 #define DEBUG
 
 typedef enum
@@ -50,16 +51,16 @@ typedef struct JsonValue
 } JsonValue;
 
 typedef struct JsonArray {
-    size_t length;
-    JsonValue* elements;
+    int16_t length;
+    int16_t elements;
 } JsonArray;
 
 // Node in the prefix trie that allows
 typedef struct JsonNode
 {
-    struct JsonNode* sibling;
-    struct JsonNode* child;
-    JsonValue* data;
+    int16_t child;
+    int16_t sibling;
+    int16_t data;
     unsigned char letter;
 } JsonNode;
 
@@ -75,9 +76,9 @@ void free_JsonObject(JsonObject *obj);
 JsonValue get_value(JsonObject * obj, char * key);
 int set_value(JsonObject * obj, char * key, void* data, JsonDataType type);
 
-JsonArray * create_JsonArray(size_t length);
-int set_element(JsonArray * j, size_t index, void * data, JsonDataType type);
-JsonValue get_element(JsonArray * j, size_t index);
+JsonArray * create_JsonArray(int16_t length);
+int set_element(JsonArray * j, int16_t index, void * data, JsonDataType type);
+JsonValue get_element(JsonArray * j, int16_t index);
 
 
 

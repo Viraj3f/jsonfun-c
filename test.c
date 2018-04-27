@@ -2,7 +2,7 @@
 #include <string.h>
 #include <math.h>
 
-#include "json.h"
+#include "src/json.h"
 
 
 void test_construction()
@@ -75,8 +75,6 @@ void test_construction()
     set_value(j, "good", "wurd", JSON_STRING);
     jd = get_value(j, "good");
     assert(strcmp(jd.data.s, "wurd") == 0);
-
-    free_JsonObject(j);
 }
 
 void test_arrays()
@@ -113,8 +111,6 @@ void test_arrays()
 
     jd = get_element(array, 4);
     assert(strcmp(jd.data.s, "henlo world") == 0);
-
-    free_JsonObject(o);
 }
 
 void test_nesting()
@@ -176,23 +172,12 @@ void test_nesting()
 
     jd = get_element(array, 1);
     assert(fabs(jd.data.f - f1) > 0.0000000001);
-
-    free_JsonObject(o);
 }
 
 
 int main() {
-    // Run this many times to test for memory leaks.
-    const int times = 1;
-    for (int i = 0; i < times; i++)
-    {
-        //test_construction();
-        //test_arrays();
-        //test_nesting();
-    }
-
-    // Statically allocate 1kB.
-    #define MEMPOOL_SIZE 1024
+    // Statically allocate 512B.
+    #define MEMPOOL_SIZE 512
     char mempool[MEMPOOL_SIZE];
     Json_set_mempool(mempool, &mempool[MEMPOOL_SIZE - 1]);
     test_construction();

@@ -11,20 +11,26 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdalign.h>
+#include <stdint.h>
 
 #include "json.h"
 
 
+// Bit marks that are helpful to use.
+const size_t BIT_MASK16 = 0x0FFFF;
+
 typedef struct Mempool
 {
-    char * end;
-    char * top;
+    int8_t * start;
+    int8_t * end;
+    int8_t * top;
 } Mempool;
 
 Mempool buffer = { .end=NULL, .top=NULL };
 
 void Json_set_mempool(void * start, void * end)
 {
+    buffer.start = start;
     buffer.top = start;
     buffer.end = end;
 }
@@ -67,27 +73,24 @@ void * _json_alloc(size_t size, size_t alignment)
     return loc;
 }
 
-void _json_free(void * p)
-{
-    if (!buffer.end)
-    {
-        free(p);
-    }
-}
-
-// 1000 0000
-// Since Ascii characters are only 7 bits long, the 
-// first bit can act as a "flag" when a node is unitialized.
 const unsigned char DEFAULT_LETTER = 0x80;
+const u_int16_t DEFAULT_OBJECT_ADDRESS = 0;
+void _alloc_default_JsonNode(JsonNode* node)
+{
+    // 1000 0000
+    // Since Ascii characters are only 7 bits long, the 
+    // first bit can act as a "flag" when a node is unitialized.
+    node->sibling = DEFAULT_OBJECT_ADDRESS;
+    node->child = DEFAULT_OBJECT_ADDRESS;
+    node->data = DEFAULT_OBJECT_ADDRESS;
+    node->letter = DEFAULT_LETTER; // 1000 0000.
+}
 
 // Creates an empty JSON object, equivalent of {}
 JsonObject* create_JsonObject()
 {
     JsonNode node;
-    node.sibling = NULL;
-    node.child = NULL;
-    node.data = NULL;
-    node.letter = DEFAULT_LETTER; // 1000 0000.
+    _alloc_default_JsonNode(&node);
 
     JsonObject* obj = _json_alloc(sizeof(JsonObject), alignof(JsonObject));
     obj->node = node;
@@ -95,83 +98,6 @@ JsonObject* create_JsonObject()
     return obj;
 }
 
-void _free_JsonValueData(JsonValue* value)
-{
-    switch (value->type)
-    {
-        case JSON_OBJECT:
-        {
-            JsonObject* obj = (JsonObject *)value->data.o;
-            free_JsonObject(obj);
-            break;
-        }
-        case JSON_STRING:
-            _json_free(value->data.s);
-            break;
-        case JSON_ARRAY:
-        {
-            // Note, when freeing an array, we only need to free the values
-            // that the array elements point to. The element itself is freed when the
-            // entire array is freed. This is because JsonArray holds a series
-            // of JsonElements sequentially in memory, not pointers to JsonElements.
-            JsonValue* element = value->data.a->elements;
-            size_t length = value->data.a->length;
-            for (size_t i = 0; i < length; i++)
-            {
-                _free_JsonValueData(element);
-                element++;
-            }
-            _json_free(value->data.a->elements);
-            _json_free(value->data.a);
-            break;
-        }
-        default:
-            break;
-    }
-}
-
-void _free_JsonValue(JsonValue* value)
-{
-    if (value != NULL)
-    {
-        _free_JsonValueData(value);
-        _json_free(value);
-    }
-}
-
-void _free_JsonNode(JsonNode * node)
-{
-    while (node != NULL)
-    {
-        if (node->child != NULL)
-        {
-            #ifdef DEBUG
-            printf("%c", node->letter);
-            #endif
-            _free_JsonNode(node->child);
-        }
-
-        _free_JsonValue(node->data);
-
-        JsonNode* temp = node;
-        node = node->sibling;
-        _json_free(temp);
-    }
-}
-
-void free_JsonObject(JsonObject * obj)
-{
-    if (!buffer.end)
-    {
-        #ifdef DEBUG
-            printf("%c", obj->node.letter);
-        #endif
-        _free_JsonValue(obj->node.data);
-        _free_JsonNode(obj->node.child);
-        _free_JsonNode(obj->node.sibling);
-        _json_free(obj);
-    }
-}
 
 JsonValue get_value(JsonObject * obj, char * key)
 {
@@ -182,17 +108,15 @@ JsonValue get_value(JsonObject * obj, char * key)
         // TODO: Return an error if node == NULL
         while (*key != node->letter)
         {
-            node = node->sibling;
+            node = (JsonNode*)(buffer.start + node->sibling);
         }
 
-        JsonNode * child = node->child;
-        node = child;
+        node = (JsonNode*)(buffer.start + node->child);
         key++;
     }
 
-    return *(node->data);
+    return *((JsonValue*)(buffer.start + node->data));
 }
-
 
 int _alloc_JsonElement(JsonValue * jd, void * data)
 {
@@ -250,15 +174,14 @@ int _set_value(JsonObject * obj, char * key, JsonValue* value)
         // Otherwise traverse sideways until a matching letter is found
         while (*key != node->letter)
         {
-            if (node->sibling == NULL)
+            if (!node->sibling)
             {
-                node->sibling = _json_alloc(sizeof(JsonNode), alignof(JsonNode));
-                node->sibling->sibling = NULL;
-                node->sibling->child = NULL;
-                node->sibling->data = NULL;
-                node->sibling->letter = *key;
+                JsonNode * sibling = _json_alloc(sizeof(JsonNode), alignof(JsonNode));
+                _alloc_default_JsonNode(sibling);
+                sibling->letter = *key;
+                node->sibling = ((int8_t *) sibling - buffer.start) & BIT_MASK16;
             }
-            node = node->sibling;
+            node = (JsonNode*)(buffer.start + node->sibling);
         }
 
         // Check if the next character is null terminating.
@@ -266,23 +189,16 @@ int _set_value(JsonObject * obj, char * key, JsonValue* value)
         // added to. If node, then traverse one node down, creating a new node
         // if it does not already exist.
         key++;
-        if (node->child == NULL)
+        if (!node->child)
         {
-            node->child = _json_alloc(sizeof(JsonNode), alignof(JsonNode));
-            node->child->sibling = NULL;
-            node->child->child = NULL;
-            node->child->data = NULL;
-            node->child->letter = *key;
+            JsonNode * child = _json_alloc(sizeof(JsonNode), alignof(JsonNode));
+            _alloc_default_JsonNode(child);
+            node->child = ((int8_t *) child - buffer.start) & BIT_MASK16;
         }
-        node = node->child;
+        node = (JsonNode*)(buffer.start + node->child);
     }
 
-    if (!buffer.end && node->data != NULL)
-    {
-        // Free the old node data before adding in new data.
-        _free_JsonValue(node->data);
-    }
-    node->data = value;
+    node->data = ((int8_t *) value - buffer.start) & BIT_MASK16;
 
     return 0;
 }
@@ -296,7 +212,6 @@ int set_value(JsonObject * obj, char * key, void* data, JsonDataType type)
 
     if (status < 0)
     {
-        _json_free(jd);
         return status;
     }
 
@@ -305,29 +220,26 @@ int set_value(JsonObject * obj, char * key, void* data, JsonDataType type)
 }
 
 
-JsonArray * create_JsonArray(size_t length)
+JsonArray * create_JsonArray(int16_t length)
 {
     JsonArray* j = _json_alloc(sizeof(JsonArray), alignof(JsonArray));
     j->length = length;
-    j->elements = _json_alloc(sizeof(JsonValue) * length, alignof(JsonArray));
+
+    JsonValue * elements = _json_alloc(sizeof(JsonValue) * length, alignof(JsonArray));
+    j->elements = ((int8_t *) elements - buffer.start) & BIT_MASK16;
     return j;
 }
 
-int set_element(JsonArray * j, size_t index, void * data, JsonDataType type)
+int set_element(JsonArray * j, int16_t index, void * data, JsonDataType type)
 {
-    JsonValue *jd = &(j->elements[index]);
+    JsonValue *jd = &(((JsonValue*)(buffer.start + j->elements))[index]);
     jd->type = type;
     int status = _alloc_JsonElement(jd, data);
-
-    if (status < 0)
-    {
-        _free_JsonValueData(jd);
-    }
 
     return status;
 }
 
-JsonValue get_element(JsonArray * j, size_t index)
+JsonValue get_element(JsonArray * j, int16_t index)
 {
     if (index > j->length)
     {
@@ -336,5 +248,5 @@ JsonValue get_element(JsonArray * j, size_t index)
             .data.e=INDEX_OUT_OF_BOUNDS
         };
     }
-    return j->elements[index];
+    return ((JsonValue*)(buffer.start + j->elements))[index];
 }
