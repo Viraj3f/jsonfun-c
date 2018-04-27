@@ -14,7 +14,7 @@
 
 #include "json.h"
 
-#define DEBUG
+//#define DEBUG
 
 typedef struct Mempool
 {
@@ -59,8 +59,8 @@ void * _json_alloc(size_t size, size_t alignment)
 
     #ifdef DEBUG
     printf("Requested: %lu ", size);
-    printf("Padding: %lu ", (size_t)padding);
-    printf("Aligned: %d ", (bool)((size_t)loc % alignment == 0));
+    printf("Alignment: %lu ", alignment);
+    printf("Padding: %d ", padding);
     printf("Free bytes: %lu ", (size_t)(buffer.end - buffer.top + 1));
     printf("Top: %p\n", (void *)buffer.top);
     #endif
@@ -89,7 +89,6 @@ JsonObject* create_JsonObject()
 
     JsonObject* obj = _json_alloc(sizeof(JsonObject), alignof(JsonObject));
     obj->node = node;
-    obj->isEmpty = true;
 
     return obj;
 }
@@ -238,46 +237,45 @@ int _set_value(JsonObject * obj, char * key, JsonValue* value)
 {
     JsonNode * node = &(obj->node);
 
-    if (obj->isEmpty)
+    // Check if the JSON node is set to its default values. If that is the case,
+    // we can save an extra allocation by chaning the default value's key rather
+    // than by creating a sibling.
+    if (node->letter == '\0' && node->data == NULL)
     {
         node->letter = *key;
-        obj->isEmpty = false;
     }
 
     // If passed in an empty string, go directly to setting the object's value.
-    if (key)
+    while (*key)
     {
-        while (*key)
+        // Otherwise traverse sideways until a matching letter is found
+        while (*key != node->letter)
         {
-            // Otherwise traverse sideways until a matching letter is found
-            while (*key != node->letter)
+            if (node->sibling == NULL)
             {
-                if (node->sibling == NULL)
-                {
-                    node->sibling = _json_alloc(sizeof(JsonNode), alignof(JsonNode));
-                    node->sibling->sibling = NULL;
-                    node->sibling->child = NULL;
-                    node->sibling->data = NULL;
-                    node->sibling->letter = *key;
-                }
-                node = node->sibling;
+                node->sibling = _json_alloc(sizeof(JsonNode), alignof(JsonNode));
+                node->sibling->sibling = NULL;
+                node->sibling->child = NULL;
+                node->sibling->data = NULL;
+                node->sibling->letter = *key;
             }
-
-            // Check if the next character is null terminating.
-            // If it is, then the current node will be the one to which data is
-            // added to. If node, then traverse one node down, creating a new node
-            // if it does not already exist.
-            key++;
-            if (node->child == NULL)
-            {
-                node->child = _json_alloc(sizeof(JsonNode), alignof(JsonNode));
-                node->child->sibling = NULL;
-                node->child->child = NULL;
-                node->child->data = NULL;
-                node->child->letter = *key;
-            }
-            node = node->child;
+            node = node->sibling;
         }
+
+        // Check if the next character is null terminating.
+        // If it is, then the current node will be the one to which data is
+        // added to. If node, then traverse one node down, creating a new node
+        // if it does not already exist.
+        key++;
+        if (node->child == NULL)
+        {
+            node->child = _json_alloc(sizeof(JsonNode), alignof(JsonNode));
+            node->child->sibling = NULL;
+            node->child->child = NULL;
+            node->child->data = NULL;
+            node->child->letter = *key;
+        }
+        node = node->child;
     }
 
     if (!buffer.end && node->data != NULL)

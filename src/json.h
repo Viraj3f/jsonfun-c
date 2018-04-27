@@ -11,6 +11,7 @@
 
 #include <stdlib.h>
 #include <stdbool.h>
+#define DEBUG
 
 typedef enum
 {
@@ -64,9 +65,7 @@ typedef struct JsonNode
 
 typedef struct JsonObject
 {
-    JsonDataType type;
     JsonNode node;
-    bool isEmpty;
 } JsonObject;
 
 void Json_set_mempool(void * start, void * end);

@@ -183,25 +183,26 @@ void test_nesting()
 
 int main() {
     // Run this many times to test for memory leaks.
-    //const int times = 1;
-    //for (int i = 0; i < times; i++)
-    //{
-    //    test_construction();
-    //    test_arrays();
-    //    test_nesting();
-    //}
+    const int times = 1;
+    for (int i = 0; i < times; i++)
+    {
+        //test_construction();
+        //test_arrays();
+        //test_nesting();
+    }
 
-    // Statically allocate 1kB for static allocation
+    // Statically allocate 1kB.
     #define MEMPOOL_SIZE 1024
     char mempool[MEMPOOL_SIZE];
     Json_set_mempool(mempool, &mempool[MEMPOOL_SIZE - 1]);
     test_construction();
 
-    Json_set_mempool(mempool, &mempool[MEMPOOL_SIZE - 1]);
-    test_arrays();
+    //Json_set_mempool(mempool, &mempool[MEMPOOL_SIZE - 1]);
+    //test_arrays();
 
-    Json_set_mempool(mempool, &mempool[MEMPOOL_SIZE - 1]);
-    test_nesting();
+    //Json_set_mempool(mempool, &mempool[MEMPOOL_SIZE - 1]);
+    //test_nesting();
+
     
     return 0;
 }
