@@ -16,9 +16,6 @@
 
 #define DEBUG
 
-// Not ultra-reliable, but should work in most cases...
-const int CPU_WORDSIZE = sizeof(size_t);
-
 typedef struct Mempool
 {
     char * end;
@@ -32,7 +29,6 @@ void Json_set_mempool(void * start, void * end)
     buffer.top = start;
     buffer.end = end;
 }
-
 
 void * _json_alloc(size_t size, size_t alignment) 
 {
@@ -48,7 +44,7 @@ void * _json_alloc(size_t size, size_t alignment)
     int remainder = (size_t) buffer.top % alignment;
     if (remainder != 0)
     {
-        padding = CPU_WORDSIZE - remainder;
+        padding = alignment - remainder;
         buffer.top += padding;
     }
 
@@ -64,7 +60,7 @@ void * _json_alloc(size_t size, size_t alignment)
     #ifdef DEBUG
     printf("Requested: %lu ", size);
     printf("Padding: %lu ", (size_t)padding);
-    printf("Aligned: %d ", (bool)((size_t)loc % CPU_WORDSIZE == 0));
+    printf("Aligned: %d ", (bool)((size_t)loc % alignment == 0));
     printf("Free bytes: %lu ", (size_t)(buffer.end - buffer.top + 1));
     printf("Top: %p\n", (void *)buffer.top);
     #endif
