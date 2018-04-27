@@ -197,11 +197,11 @@ int main() {
     Json_set_mempool(mempool, &mempool[MEMPOOL_SIZE - 1]);
     test_construction();
 
-    //Json_set_mempool(mempool, &mempool[MEMPOOL_SIZE - 1]);
-    //test_arrays();
+    Json_set_mempool(mempool, &mempool[MEMPOOL_SIZE - 1]);
+    test_arrays();
 
-    //Json_set_mempool(mempool, &mempool[MEMPOOL_SIZE - 1]);
-    //test_nesting();
+    Json_set_mempool(mempool, &mempool[MEMPOOL_SIZE - 1]);
+    test_nesting();
 
     
     return 0;

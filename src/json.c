@@ -14,7 +14,6 @@
 
 #include "json.h"
 
-//#define DEBUG
 
 typedef struct Mempool
 {
@@ -76,16 +75,19 @@ void _json_free(void * p)
     }
 }
 
-/*
- * Creates an empty JSON object, equivalent of {}
- */
+// 1000 0000
+// Since Ascii characters are only 7 bits long, the 
+// first bit can act as a "flag" when a node is unitialized.
+const unsigned char DEFAULT_LETTER = 0x80;
+
+// Creates an empty JSON object, equivalent of {}
 JsonObject* create_JsonObject()
 {
     JsonNode node;
     node.sibling = NULL;
     node.child = NULL;
     node.data = NULL;
-    node.letter = '\0';
+    node.letter = DEFAULT_LETTER; // 1000 0000.
 
     JsonObject* obj = _json_alloc(sizeof(JsonObject), alignof(JsonObject));
     obj->node = node;
@@ -175,20 +177,17 @@ JsonValue get_value(JsonObject * obj, char * key)
 {
     JsonNode * node = &(obj->node);
 
-    if (*key)
+    while (*key)
     {
-        while (*key)
+        // TODO: Return an error if node == NULL
+        while (*key != node->letter)
         {
-            // TODO: Return an error if node == NULL
-            while (*key != node->letter)
-            {
-                node = node->sibling;
-            }
-
-            JsonNode * child = node->child;
-            node = child;
-            key++;
+            node = node->sibling;
         }
+
+        JsonNode * child = node->child;
+        node = child;
+        key++;
     }
 
     return *(node->data);
@@ -227,7 +226,7 @@ int _alloc_JsonElement(JsonValue * jd, void * data)
             break;
         }
         default:
-            return -1; 
+            return INVALID_TYPE; 
     }
 
     return 0;
@@ -240,7 +239,7 @@ int _set_value(JsonObject * obj, char * key, JsonValue* value)
     // Check if the JSON node is set to its default values. If that is the case,
     // we can save an extra allocation by chaning the default value's key rather
     // than by creating a sibling.
-    if (node->letter == '\0' && node->data == NULL)
+    if (node->letter & DEFAULT_LETTER)
     {
         node->letter = *key;
     }
