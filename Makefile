@@ -1,9 +1,10 @@
 CC=clang
 CFLAGS=-W -Wall -Wextra -pedantic
-FILES=test.c json.c
+FILES=test.c src/json.c
+SRC_DIR=src/
 
 all:
-	$(CC) $(FILES) -o test.out $(CFLAGS)
+	$(CC) -I $(SRC_DIR) $(FILES) -o test.out $(CFLAGS)
 
 debug:
-	$(CC) -g $(FILES) -o debug.out $(CFLAGS)
+	$(CC) -g -I $(SRC_DIR) $(FILES) -o debug.out $(CFLAGS)

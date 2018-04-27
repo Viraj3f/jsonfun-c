@@ -6,5 +6,9 @@ The funnest little json parsing and serialization C library in the world. Lightw
 WIP...
 
 ### Internal Structure
+#### JSON Objects and Values
+#### JSON Arrays
+#### Memory allocation
+
 ### Parsing
 ### Serialization

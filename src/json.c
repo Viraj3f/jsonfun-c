@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <stdalign.h>
 
 #include "json.h"
 
@@ -33,7 +34,7 @@ void Json_set_mempool(void * start, void * end)
 }
 
 
-void * _json_alloc(size_t size) 
+void * _json_alloc(size_t size, size_t alignment) 
 {
     // If the mempool has not been set, then just use malloc/free
     if (!buffer.end)
@@ -41,32 +42,29 @@ void * _json_alloc(size_t size)
         return malloc(size);
     }
 
-    void * loc = (void *) buffer.top;
-    buffer.top += size;
-
-    // Align memory add:ess
+    // Alignment
+    // Check to see if the current top is aligned.
     int padding = 0;
-
-    #ifndef JSON_NO_PADDING
-    int remainder = size % CPU_WORDSIZE;
-    if (size >= CPU_WORDSIZE && remainder != 0)
+    int remainder = (size_t) buffer.top % alignment;
+    if (remainder != 0)
     {
         padding = CPU_WORDSIZE - remainder;
         buffer.top += padding;
     }
-    #endif
 
-    #ifndef JSON_NO_MEMPOOL_BOUND_CHECK
+    void * loc = (void *) buffer.top;
+    buffer.top += size;
+
     if (buffer.top >= buffer.end)
     {
         printf("Out of memory!\n");
         loc = NULL;
     }
-    #endif
 
     #ifdef DEBUG
     printf("Requested: %lu ", size);
     printf("Padding: %lu ", (size_t)padding);
+    printf("Aligned: %d ", (bool)((size_t)loc % CPU_WORDSIZE == 0));
     printf("Free bytes: %lu ", (size_t)(buffer.end - buffer.top + 1));
     printf("Top: %p\n", (void *)buffer.top);
     #endif
@@ -93,7 +91,7 @@ JsonObject* create_JsonObject()
     node.data = NULL;
     node.letter = '\0';
 
-    JsonObject* obj = _json_alloc(sizeof(JsonObject));
+    JsonObject* obj = _json_alloc(sizeof(JsonObject), alignof(JsonObject));
     obj->node = node;
     obj->isEmpty = true;
 
@@ -211,7 +209,7 @@ int _alloc_JsonElement(JsonValue * jd, void * data)
             break;
         case JSON_STRING:
         {
-            char * destination = _json_alloc(strlen((char *) data) + 1);
+            char * destination = _json_alloc(strlen((char *) data) + 1, alignof(char));
             strcpy(destination, (char *) data);
             jd->data.s = destination;
             break;
@@ -260,7 +258,7 @@ int _set_value(JsonObject * obj, char * key, JsonValue* value)
             {
                 if (node->sibling == NULL)
                 {
-                    node->sibling = _json_alloc(sizeof(JsonNode));
+                    node->sibling = _json_alloc(sizeof(JsonNode), alignof(JsonNode));
                     node->sibling->sibling = NULL;
                     node->sibling->child = NULL;
                     node->sibling->data = NULL;
@@ -276,7 +274,7 @@ int _set_value(JsonObject * obj, char * key, JsonValue* value)
             key++;
             if (node->child == NULL)
             {
-                node->child = _json_alloc(sizeof(JsonNode));
+                node->child = _json_alloc(sizeof(JsonNode), alignof(JsonNode));
                 node->child->sibling = NULL;
                 node->child->child = NULL;
                 node->child->data = NULL;
@@ -298,7 +296,7 @@ int _set_value(JsonObject * obj, char * key, JsonValue* value)
 
 int set_value(JsonObject * obj, char * key, void* data, JsonDataType type)
 {
-    JsonValue* jd = _json_alloc(sizeof(JsonValue));
+    JsonValue* jd = _json_alloc(sizeof(JsonValue), alignof(JsonValue));
     jd->type = type;
 
     int status = _alloc_JsonElement(jd, data);
@@ -316,9 +314,9 @@ int set_value(JsonObject * obj, char * key, void* data, JsonDataType type)
 
 JsonArray * create_JsonArray(size_t length)
 {
-    JsonArray* j = _json_alloc(sizeof(JsonArray));
+    JsonArray* j = _json_alloc(sizeof(JsonArray), alignof(JsonArray));
     j->length = length;
-    j->elements = _json_alloc(sizeof(JsonValue) * length);
+    j->elements = _json_alloc(sizeof(JsonValue) * length, alignof(JsonArray));
     return j;
 }
 
