@@ -12,7 +12,6 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
-#define DEBUG
 
 typedef enum
 {
@@ -69,17 +68,20 @@ typedef struct JsonObject
     JsonNode node;
 } JsonObject;
 
+// Sets the beginning and end of the memory allocate for the JSON object
 void Json_set_mempool(void * start, void * end);
 
+// Functions for creating json objects
 JsonObject* create_JsonObject(void);
-void free_JsonObject(JsonObject *obj);
 JsonValue get_value(JsonObject * obj, char * key);
 int set_value(JsonObject * obj, char * key, void* data, JsonDataType type);
 
+// Function for creating json arrays
 JsonArray * create_JsonArray(int16_t length);
 int set_element(JsonArray * j, int16_t index, void * data, JsonDataType type);
 JsonValue get_element(JsonArray * j, int16_t index);
 
-
+size_t dump_JsonObject(JsonObject *o, char* destination);
 
 #endif
+

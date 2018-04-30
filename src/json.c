@@ -16,9 +16,6 @@
 #include "json.h"
 
 
-// Bit marks that are helpful to use.
-const size_t BIT_MASK16 = 0x0FFFF;
-
 typedef struct Mempool
 {
     int8_t * start;
@@ -75,7 +72,7 @@ void * _json_alloc(size_t size, size_t alignment)
 
 const unsigned char DEFAULT_LETTER = 0x80;
 const u_int16_t DEFAULT_OBJECT_ADDRESS = 0;
-void _alloc_default_JsonNode(JsonNode* node)
+void _set_default_JsonNode(JsonNode* node)
 {
     // 1000 0000
     // Since Ascii characters are only 7 bits long, the 
@@ -90,7 +87,7 @@ void _alloc_default_JsonNode(JsonNode* node)
 JsonObject* create_JsonObject()
 {
     JsonNode node;
-    _alloc_default_JsonNode(&node);
+    _set_default_JsonNode(&node);
 
     JsonObject* obj = _json_alloc(sizeof(JsonObject), alignof(JsonObject));
     obj->node = node;
@@ -103,9 +100,16 @@ JsonValue get_value(JsonObject * obj, char * key)
 {
     JsonNode * node = &(obj->node);
 
+    if (!(*key))
+    {
+        while (*key != node->letter)
+        {
+            node = (JsonNode*)(buffer.start + node->sibling);
+        }
+    }
+
     while (*key)
     {
-        // TODO: Return an error if node == NULL
         while (*key != node->letter)
         {
             node = (JsonNode*)(buffer.start + node->sibling);
@@ -165,7 +169,23 @@ int _set_value(JsonObject * obj, char * key, JsonValue* value)
     // than by creating a sibling.
     if (node->letter & DEFAULT_LETTER)
     {
+        _set_default_JsonNode(node);
         node->letter = *key;
+    }
+
+    if (!(*key))
+    {
+        while (*key != node->letter)
+        {
+            if (!node->sibling)
+            {
+                JsonNode * sibling = _json_alloc(sizeof(JsonNode), alignof(JsonNode));
+                _set_default_JsonNode(sibling);
+                sibling->letter = *key;
+                node->sibling = ((int8_t *) sibling - buffer.start);
+            }
+            node = (JsonNode*)(buffer.start + node->sibling);
+        }
     }
 
     // If passed in an empty string, go directly to setting the object's value.
@@ -177,9 +197,9 @@ int _set_value(JsonObject * obj, char * key, JsonValue* value)
             if (!node->sibling)
             {
                 JsonNode * sibling = _json_alloc(sizeof(JsonNode), alignof(JsonNode));
-                _alloc_default_JsonNode(sibling);
+                _set_default_JsonNode(sibling);
                 sibling->letter = *key;
-                node->sibling = ((int8_t *) sibling - buffer.start) & BIT_MASK16;
+                node->sibling = ((int8_t *) sibling - buffer.start);
             }
             node = (JsonNode*)(buffer.start + node->sibling);
         }
@@ -192,13 +212,14 @@ int _set_value(JsonObject * obj, char * key, JsonValue* value)
         if (!node->child)
         {
             JsonNode * child = _json_alloc(sizeof(JsonNode), alignof(JsonNode));
-            _alloc_default_JsonNode(child);
-            node->child = ((int8_t *) child - buffer.start) & BIT_MASK16;
+            _set_default_JsonNode(child);
+            child->letter = *key;
+            node->child = ((int8_t *) child - buffer.start);
         }
         node = (JsonNode*)(buffer.start + node->child);
     }
 
-    node->data = ((int8_t *) value - buffer.start) & BIT_MASK16;
+    node->data = ((int8_t *) value - buffer.start);
 
     return 0;
 }
@@ -226,7 +247,7 @@ JsonArray * create_JsonArray(int16_t length)
     j->length = length;
 
     JsonValue * elements = _json_alloc(sizeof(JsonValue) * length, alignof(JsonArray));
-    j->elements = ((int8_t *) elements - buffer.start) & BIT_MASK16;
+    j->elements = ((int8_t *) elements - buffer.start);
     return j;
 }
 
@@ -250,3 +271,200 @@ JsonValue get_element(JsonArray * j, int16_t index)
     }
     return ((JsonValue*)(buffer.start + j->elements))[index];
 }
+
+typedef struct _Stack
+{
+    void* stack[128];
+    int stacktop;
+} _Stack;
+
+int push_ptr(_Stack* s, void* p)
+{
+    if (s->stacktop >= 127)
+    {
+        return -1;
+    }
+
+    (s->stacktop)++;
+    s->stack[s->stacktop] = p;
+
+    return 0;
+}
+
+int push_int(_Stack* s, int i)
+{
+    if (s->stacktop >= 127)
+    {
+        return -1;
+    }
+
+    s->stacktop += sizeof(int);
+    int* p = (int*) &(s->stack[s->stacktop]);
+    *p = i;
+
+    return 0;
+}
+
+void* pop_ptr(_Stack* s)
+{
+    void *rval = s->stack[s->stacktop];
+    (s->stacktop)--;
+
+    return rval;
+}
+
+int pop_int(_Stack* s)
+{
+    int rval = (int) s->stack[s->stacktop];
+    s->stacktop -= sizeof(int);
+
+    return rval;
+}
+
+char * _JSON_NULL_STR = "null";
+char * _JSON_FALSE_STR = "false";
+char * _JSON_TRUE_STR = "true";
+
+char* _dump_JsonObject_Key(char* buffer, int bufStart, int bufEnd, char* destination)
+{
+    *(destination++) = '"'; 
+    for (int i = bufStart; i <= bufEnd; i++)
+    {
+        *(destination++) = buffer[i];
+    }
+    *(destination++) = '"'; 
+    *(destination++) = ':'; 
+
+    return destination;
+
+}
+
+char* _dump_JsonNodes(
+    JsonNode* root, 
+    char* destination, 
+    _Stack* valstack,
+    _Stack* bufend_stack,
+    char key_buffer[256])
+{
+    if (root->letter & DEFAULT_LETTER)
+    {
+        return destination;
+    }
+
+    int initialStackValue = valstack->stacktop;
+
+    push_ptr(valstack, root);
+    push_int(bufend_stack, 0);
+    while(valstack->stacktop > initialStackValue)
+    {
+        JsonNode* node = pop_ptr(valstack);
+        int strIndex  = pop_int(bufend_stack);  // This will update strIndex
+        key_buffer[strIndex] = node->letter;  // Add the current key to the buffer
+
+        // Add sibling to stack if exists
+        if (node->sibling != DEFAULT_OBJECT_ADDRESS)
+        {
+            JsonNode* sibling = (JsonNode*)(buffer.start + node->sibling); 
+            push_ptr(valstack, sibling);
+            push_int(bufend_stack, strIndex);
+        }
+
+        // Add child to stack if exists
+        if (node->child != DEFAULT_OBJECT_ADDRESS)
+        {
+            JsonNode* child = (JsonNode*)(buffer.start + node->child); 
+            push_ptr(valstack, child);
+            push_int(bufend_stack, strIndex + 1);
+        }
+
+        // Print current node if it's not empty
+        if (node->data != DEFAULT_OBJECT_ADDRESS)
+        {
+            destination = _dump_JsonObject_Key(key_buffer, 0, strIndex - 1, destination);
+            JsonValue* value = (JsonValue*)(buffer.start + node->data);
+            switch (value->type)
+            {
+                char *str;
+                case JSON_NULL:
+                    str = _JSON_NULL_STR;
+                    while (*str) *(destination++) = *(str++);
+                    break;
+                case JSON_STRING:
+                {
+                    str = value->data.s;
+                    *(destination++) = '"';
+                    while (*str) *(destination++) = *(str++);
+                    *(destination++) = '"';
+                    break;
+                }
+                case JSON_BOOL:
+                    str = value->data.b ? _JSON_TRUE_STR : _JSON_FALSE_STR;
+                    while (*str) *(destination++) = *(str++);
+                    break;
+                case JSON_INT:
+                {
+                    int len = sprintf(destination, "%d", value->data.i);
+                    destination += len;
+                    break;
+                }
+                case JSON_FLOAT:
+                {
+                    int len = sprintf(destination, "%g", value->data.f);
+                    destination += len;
+                    break;
+                }
+                case JSON_OBJECT:
+                    *(destination++) = '{';
+                    destination = 
+                        _dump_JsonNodes(
+                            &(value->data.o->node),
+                            destination, 
+                            valstack,
+                            bufend_stack,
+                            key_buffer);
+                    *(destination++) = '}';
+                    break;
+                case JSON_ARRAY:
+                    break;
+                default:
+                    break;
+            }
+            *(destination++) = ','; 
+        }
+    }
+
+    // Remove the extra comma
+    return --destination;
+}
+
+char*
+_dump_JsonObject(
+    JsonObject *o,
+    char* destination)
+{
+    *(destination++) = '{';
+
+    char key_buffer[256];
+    _Stack valstack, bufend_stack;
+
+    valstack.stacktop = -1;
+    bufend_stack.stacktop = -1;
+
+    destination = 
+        _dump_JsonNodes(
+            &(o->node), destination, &valstack, &bufend_stack, key_buffer);
+
+    *(destination++) = '}';
+    return destination;
+}
+
+size_t dump_JsonObject(JsonObject* o, char* destination)
+{
+    char* end = _dump_JsonObject(o, destination);
+    *end = '\0';
+    
+    return end - destination;
+}
+
+
+

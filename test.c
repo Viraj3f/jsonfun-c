@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <assert.h>
 #include <string.h>
 #include <math.h>
@@ -14,6 +15,7 @@ void test_construction()
     //     "": 13.1,
     //     "good bye": false
     // }
+    char buffer[256];
     JsonObject* j = create_JsonObject();
 
     int a1 = 13;
@@ -40,6 +42,9 @@ void test_construction()
     set_value(j, "good bye", &b1, JSON_BOOL);
     assert(jd.data.b == b1);
 
+    dump_JsonObject(j, buffer);
+    printf("%s\n", buffer);
+
     // Structure:
     // {
     //     "hello": 13,
@@ -59,6 +64,9 @@ void test_construction()
     jd = get_value(j, "good bye");
     assert(jd.data.o == j2);
 
+    dump_JsonObject(j, buffer);
+    printf("%s\n", buffer);
+
     // Structure:
     // {
     //     "hello": 13,
@@ -75,6 +83,9 @@ void test_construction()
     set_value(j, "good", "wurd", JSON_STRING);
     jd = get_value(j, "good");
     assert(strcmp(jd.data.s, "wurd") == 0);
+
+    dump_JsonObject(j, buffer);
+    printf("%s\n", buffer);
 }
 
 void test_arrays()
@@ -174,10 +185,46 @@ void test_nesting()
     assert(fabs(jd.data.f - f1) > 0.0000000001);
 }
 
+void test_printing()
+{
+    // Create an object like:
+    // {"Hen":null,"Henlo":"Gudbye","10":,"":true,"inner":{"innerinner":{},"false":false}}
+    char buffer[256];
+    JsonObject* o = create_JsonObject();
+
+    int i = 10;
+    bool b = false;
+    float f = 3.12;
+    float f4 = 5.44;
+    set_value(o, "Henlo", "Gudbye", JSON_STRING);
+    set_value(o, "10", &i, JSON_INT);
+    set_value(o, "Hen", NULL, JSON_NULL);
+    set_value(o, "", &b, JSON_BOOL);
+    set_value(o, "f", &f, JSON_FLOAT);
+
+    JsonObject* inner = create_JsonObject();
+
+    JsonObject* innerinner = create_JsonObject();
+    set_value(inner, "innerinner", innerinner, JSON_OBJECT);
+    set_value(inner, "false", false, JSON_BOOL);
+
+    set_value(o, "inz", &f4, JSON_FLOAT);
+    set_value(o, "inner", inner, JSON_OBJECT);
+
+
+    dump_JsonObject(o, buffer);
+    printf("%s\n", buffer);
+
+    const char * expected = "{\"Hen\":null,\"Henlo\":\"Gudbye\",\"10\":10,\"\":true,\"f\":3.12,\"inz\":5.44,\"inner\":{\"innerinner\":{},\"false\":false}}";
+    assert(strcmp(buffer, expected) == 0);
+}
+
+
+
 
 int main() {
-    // Statically allocate 512B.
-    #define MEMPOOL_SIZE 512
+    // Statically allocate 1024kb.
+    #define MEMPOOL_SIZE 1024
     char mempool[MEMPOOL_SIZE];
     Json_set_mempool(mempool, &mempool[MEMPOOL_SIZE - 1]);
     test_construction();
@@ -187,6 +234,9 @@ int main() {
 
     Json_set_mempool(mempool, &mempool[MEMPOOL_SIZE - 1]);
     test_nesting();
+
+    Json_set_mempool(mempool, &mempool[MEMPOOL_SIZE - 1]);
+    test_printing();
 
     
     return 0;
