@@ -191,6 +191,8 @@ void test_printing()
     // {"Hen":null,"Henlo":"Gudbye","10":,"":true,"inner":{"innerinner":{},"false":false}}
     char buffer[256];
     JsonObject* o = create_JsonObject();
+    dump_JsonObject(o, buffer);
+    printf("%s\n", buffer);
 
     int i = 10;
     bool b = false;
@@ -211,18 +213,27 @@ void test_printing()
     set_value(o, "inz", &f4, JSON_FLOAT);
     set_value(o, "inner", inner, JSON_OBJECT);
 
-
     dump_JsonObject(o, buffer);
     printf("%s\n", buffer);
 
     const char * expected = "{\"Hen\":null,\"Henlo\":\"Gudbye\",\"10\":10,\"\":true,\"f\":3.12,\"inz\":5.44,\"inner\":{\"innerinner\":{},\"false\":false}}";
     assert(strcmp(buffer, expected) == 0);
+
+    JsonObject* iiii = create_JsonObject();
+    JsonObject* iii = create_JsonObject();
+    JsonObject* ii = create_JsonObject();
+    JsonObject* in = create_JsonObject();
+
+    set_value(iii, "iii", iiii, JSON_OBJECT);
+    set_value(ii, "ii", iii, JSON_OBJECT);
+    set_value(in, "i", ii, JSON_OBJECT);
+
+    dump_JsonObject(in, buffer);
+    printf("%s\n", buffer);
 }
 
-
-
-
-int main() {
+int main()
+{
     // Statically allocate 1024kb.
     #define MEMPOOL_SIZE 1024
     char mempool[MEMPOOL_SIZE];
