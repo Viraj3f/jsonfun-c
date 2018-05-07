@@ -2,7 +2,36 @@
 
 The funnest little json parsing and serialization C library in the world. Lightweight and fast - O(log N) value lookup, and O(1) array indexing. Works with dynamic and static memory allocation. 
 
-##How to use
+## How to use
+This library is designed for ease of use.
+
+To create a JSON object:
+```C
+JsonObject* create_JsonObject(void);
+```
+
+To get and set an values from a JSON object:
+```C
+JsonValue get_value(JsonObject * obj, char * key)
+int set_value(JsonObject * obj, char * key, void* data, JsonDataType type)
+```
+
+To create an array:
+```C
+JsonArray * create_JsonArray(int16_t length);
+```
+
+To get and set array eleements:
+```C
+int set_element(JsonArray * j, int16_t index, void * data, JsonDataType type);
+JsonValue get_element(JsonArray * j, int16_t index);
+```
+
+To dump a JsonObject to string:
+```C
+size_t dump_JsonObject(JsonObject *o, char* destination);
+```
+
 ### Allocate some memory.
 
 Typically, ~1 word per byte in a Json string. This can be done on stack or heap. Call `Json_set_mempool` and pass pointers to the beginning and the end of the memory pool.
