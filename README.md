@@ -2,7 +2,7 @@
 
 The funnest little json parsing and serialization C library in the world. Lightweight and fast - O(log N) value lookup, and O(1) array indexing. Works with dynamic and static memory allocation. 
 
-## How to use
+## Overview
 This library is designed for ease of use.
 
 To allocate mempool for JSON object.
@@ -42,6 +42,7 @@ To parse a JsonObject from string (Not yet implemented)
 JsonObject* parse_JsonObject();
 ```
 
+## Example
 ### Allocate some memory.
 
 Typically, ~1 word per byte in a Json string. This can be done on stack or heap. Call `Json_set_mempool` and pass pointers to the beginning and the end of the memory pool.
@@ -126,14 +127,11 @@ set_value(innerInner, "vals", innerInnerArray, JSON_ARRAY);
 ### Dump
 Pass in a buffer, and get the number of bytes written, not including the null character
 ```C
-char buffer[256];
+rhar buffer[256];
 size_t nBytes = dump_JsonObject(obj, buffer); // Number of bytes used not including null character.
 ```
 
-### Internal Structure
-#### JSON Objects and Values
-#### JSON Arrays
-#### Memory allocation
-
-### Parsing
-### Serialization
+## Things to note
+1. The size of the buffer is limited to 2^16 bytes (~65kB). In the future, it would be possible to keep the size of the buffer to 4.3 gigs, but that would increase the internal size of the object tree (essentially doubling it). This should work for now.
+2. Elements in the mempool are not "freed". For instance, if you call `set_value` on a key that already exists, the old JsonValue will not be removed/replaced from the mempool.
+3. Arrays are of a static size, whose elements have no guarantee of value until they are set. In order to change the size of an array, the only option would be to create a new array, and copy over the old elements to the new. However, ```set_element``` will overwrite a previous value.
