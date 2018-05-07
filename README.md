@@ -59,7 +59,7 @@ The goal is to create the following JSON object:
         "intData": 32,
         "inner":
         {
-            vals: [true, false]     
+            "vals": [true, false]     
         }
     }
 }
