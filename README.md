@@ -2,20 +2,20 @@
 
 The funnest little json parsing and serialization C library in the world. Lightweight and fast - O(log N) value lookup, and O(1) array indexing. Works with dynamic and static memory allocation. 
 
-## Documentation
-How to use:
-1. Allocate some memory. Typically, ~1 word per byte in a Json string. This can be done on stack or heap. Call `Json_set_mempool` and pass pointers to the beginning and the end of the memory pool.
+##How to use
+### Allocate some memory.
 
-```
+Typically, ~1 word per byte in a Json string. This can be done on stack or heap. Call `Json_set_mempool` and pass pointers to the beginning and the end of the memory pool.
+
+```C
 #define MEMPOOL_SIZE 1024
 char mempool[MEMPOOL_SIZE];
 Json_set_mempool(mempool, &mempool[MEMPOOL_SIZE - 1]);
-
 ```
 
-2. Parsing. Pass in a string to parse, and get a pointer to a JsonObject.
-
-```
+### Parsing
+Pass in a string to parse, and get a pointer to a JsonObject.
+```C
 JsonObject* obj = Json_parse("{\"hi\": 123, \"arr\": [1.0, null, false], \"inner\": {\"strData\": \"woohoo\"}}")
 
 
@@ -36,22 +36,22 @@ JsonObject* inner = get_value(obj, "inner");
 get_element(inner, "strData").data.s; // "woohoo"
 ```
 
-3. Add elements to the Json Object:
-```
+### Modifications to a Json Object
+```C
 // Final structure will be
-{
-    "hi": 123,
-    "arr": [1.0, null, false],
-    "inner": 
-    {
-        "strData": "wohoo",
-        "intData": 32,
-        "inner":
-        {
-            vals: [true, false]     
-        }
-    }
-}
+// {
+//     "hi": 123,
+//     "arr": [1.0, null, false],
+//     "inner": 
+//     {
+//         "strData": "wohoo",
+//         "intData": 32,
+//         "inner":
+//         {
+//             vals: [true, false]     
+//         }
+//     }
+// }
 
 // Add intData
 int i = 32;
@@ -71,8 +71,9 @@ set_element(innerInnerArray, 1, &b2, JSON_BOOL);
 set_value(innerInner, "vals", innerInnerArray, JSON_ARRAY);
 ```
 
-4. Dump the updated json object
-```
+### Dump
+Pass in a buffer, and get the number of bytes written, not including the null character
+```C
 char buffer[256];
 size_t nBytes = dump_JsonObject(obj, buffer); // Number of bytes used not including null character.
 ```
