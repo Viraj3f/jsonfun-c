@@ -5,6 +5,11 @@ The funnest little json parsing and serialization C library in the world. Lightw
 ## How to use
 This library is designed for ease of use.
 
+To allocate mempool for JSON object.
+```C
+void Json_set_mempool(void * start, void * end);
+```
+
 To create a JSON object:
 ```C
 JsonObject* create_JsonObject(void);
@@ -12,8 +17,8 @@ JsonObject* create_JsonObject(void);
 
 To get and set an values from a JSON object:
 ```C
-JsonValue get_value(JsonObject * obj, char * key)
-int set_value(JsonObject * obj, char * key, void* data, JsonDataType type)
+JsonValue get_value(JsonObject * obj, char * key);
+int set_value(JsonObject * obj, char * key, void* data, JsonDataType type);
 ```
 
 To create an array:
@@ -30,6 +35,11 @@ JsonValue get_element(JsonArray * j, int16_t index);
 To dump a JsonObject to string:
 ```C
 size_t dump_JsonObject(JsonObject *o, char* destination);
+```
+
+To parse a JsonObject from string (Not yet implemented)
+```C
+JsonObject* parse_JsonObject();
 ```
 
 ### Allocate some memory.
@@ -57,7 +67,7 @@ Assume the JSON object is:
 ```
 
 ```C
-JsonObject* obj = Json_parse(jsonStr)             // Assume the json string was read. I.e. from a gile.
+JsonObject* obj = parse_JsonObject(jsonStr)       // Assume the json string was read. I.e. from a gile.
 
 JsonValue hi = get_value(obj, "hi");
 hi.data.i;                                        // 123
