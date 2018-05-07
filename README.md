@@ -18,22 +18,21 @@ Pass in a string to parse, and get a pointer to a JsonObject.
 ```C
 JsonObject* obj = Json_parse("{\"hi\": 123, \"arr\": [1.0, null, false], \"inner\": {\"strData\": \"woohoo\"}}")
 
-
 JsonValue hi = get_value(obj, "hi");
-hi.data.i;  // 123
+hi.data.i;                                        // 123
 
 JsonValue temp = get_value(obj, "arr");
 JsonArray* arr = temp.data.a;
-get_element(arr, 0).data.f;  // 1.0
-get_element(arr, 1).data.n;  // null
-get_element(arr, 2).data.b;  // false
+get_element(arr, 0).data.f;                       // 1.0
+get_element(arr, 1).data.n;                       // null
+get_element(arr, 2).data.b;                       // false
 
 JsonValue outOfBounds = get_elemetn(arr, 3);
-outOfBounds.type; //JSON_ERROR
-outOfBounds.e; //INDEX_OUT_OF_BOUNDS
+outOfBounds.type;                                 // JSON_ERROR
+outOfBounds.e;                                    // INDEX_OUT_OF_BOUNDS
 
 JsonObject* inner = get_value(obj, "inner");
-get_element(inner, "strData").data.s; // "woohoo"
+get_element(inner, "strData").data.s;             // "woohoo"
 ```
 
 ### Modifications to a Json Object
