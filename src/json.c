@@ -282,6 +282,7 @@ int push_ptr(_Stack* s, void* p)
 {
     if (s->stacktop >= 127)
     {
+        printf("Json: Stack overflow\n");
         return -1;
     }
 
@@ -295,12 +296,12 @@ int push_int(_Stack* s, int i)
 {
     if (s->stacktop >= 127)
     {
+        printf("Json: Stack overflow\n");
         return -1;
     }
 
-    s->stacktop += sizeof(int);
-    int* p = (int*) &(s->stack[s->stacktop]);
-    *p = i;
+    (s->stacktop)++;
+    ((int *)s->stack)[s->stacktop] = i;
 
     return 0;
 }
@@ -315,15 +316,15 @@ void* pop_ptr(_Stack* s)
 
 int pop_int(_Stack* s)
 {
-    int rval = (int) s->stack[s->stacktop];
-    s->stacktop -= sizeof(int);
+    int rval = ((int*)s->stack)[s->stacktop];
+    (s->stacktop)--;
 
     return rval;
 }
 
 int peek_int(_Stack* s)
 {
-    int rval = (int) s->stack[s->stacktop];
+    int rval = ((int*)s->stack)[s->stacktop];
     return rval;
 }
 
@@ -342,7 +343,68 @@ char* _dump_JsonObject_Key(char* buffer, int bufStart, int bufEnd, char* destina
     *(destination++) = ':'; 
 
     return destination;
+}
 
+char*
+_dump_JsonObject(
+    JsonObject *o,
+    char* destination,
+    _Stack* valstack,
+    _Stack* bufend_stack,
+    _Stack* objIndex_stack,
+    char* key_buffer);
+
+char * 
+_dump_JsonValue(
+    JsonValue* value, 
+    char * destination,
+    _Stack* valstack,
+    _Stack* bufend_stack,
+    _Stack* objIndex_stack,
+    char* key_buffer);
+
+char*
+_dump_JsonArray(
+    JsonArray *ary,
+    char* destination,
+    _Stack* valstack,
+    _Stack* bufend_stack,
+    _Stack* objIndex_stack,
+    char* key_buffer)
+{
+    *(destination++) = '[';
+    for (int i = 0; i < ary->length; i++)
+    {
+        if (i > 0)
+        {
+            *(destination++) = ',';
+        }
+
+        JsonValue* element = &((JsonValue*)(buffer.start + ary->elements))[i];
+        switch (element->type)
+        {
+            case JSON_OBJECT:
+                destination = _dump_JsonObject(
+                    element->data.o, 
+                    destination, 
+                    valstack, 
+                    bufend_stack,
+                    objIndex_stack,
+                    key_buffer);
+                break;
+            default:
+                destination = _dump_JsonValue(
+                    element,
+                    destination, 
+                    valstack, 
+                    bufend_stack,
+                    objIndex_stack,
+                    key_buffer);
+                break;
+        }
+    }
+    *(destination++) = ']';
+    return destination;
 }
 
 char * 
@@ -351,7 +413,8 @@ _dump_JsonValue(
     char * destination,
     _Stack* valstack,
     _Stack* bufend_stack,
-    _Stack* objIndex_stack)
+    _Stack* objIndex_stack,
+    char* key_buffer)
 {
     switch (value->type)
     {
@@ -361,13 +424,11 @@ _dump_JsonValue(
             while (*str) *(destination++) = *(str++);
             break;
         case JSON_STRING:
-        {
             str = value->data.s;
             *(destination++) = '"';
             while (*str) *(destination++) = *(str++);
             *(destination++) = '"';
             break;
-        }
         case JSON_BOOL:
             str = value->data.b ? _JSON_TRUE_STR : _JSON_FALSE_STR;
             while (*str) *(destination++) = *(str++);
@@ -391,7 +452,16 @@ _dump_JsonValue(
             *(destination++) = '{';
             break;
         case JSON_ARRAY:
+        {
+            destination = _dump_JsonArray(
+                value->data.a, 
+                destination, 
+                valstack, 
+                bufend_stack,
+                objIndex_stack,
+                key_buffer);
             break;
+        }
         default:
             break;
     }
@@ -401,39 +471,40 @@ _dump_JsonValue(
 char*
 _dump_JsonObject(
     JsonObject *o,
-    char* destination)
+    char* destination,
+    _Stack* valstack,
+    _Stack* bufend_stack,
+    _Stack* objIndex_stack,
+    char* key_buffer)
 {
-    char key_buffer[256];
-    _Stack valstack, bufend_stack, objIndex_stack;
-    valstack.stacktop = -1;
-    bufend_stack.stacktop = -1;
-    objIndex_stack.stacktop = -1;
+    push_int(objIndex_stack, valstack->stacktop);
+    push_ptr(valstack, &(o->node));
+    push_int(bufend_stack, 0);
 
-    push_int(&objIndex_stack, valstack.stacktop);
-    push_ptr(&valstack, &(o->node));
-    push_int(&bufend_stack, 0);
+    int intial_valstack_top = valstack->stacktop;
+    int intial_objIndex_stack_top = objIndex_stack->stacktop;
 
     *(destination++) = '{';
-    while (valstack.stacktop >= 0)
+    while (valstack->stacktop >= intial_valstack_top)
     {
-        JsonNode* node = pop_ptr(&valstack);
-        int strIndex  = pop_int(&bufend_stack);  // This will update strIndex
+        JsonNode* node = pop_ptr(valstack);
+        int strIndex  = pop_int(bufend_stack);  // This will update strIndex
         key_buffer[strIndex] = node->letter;  // Add the current key to the buffer
 
         // Add sibling to stack if exists
         if (node->sibling != DEFAULT_OBJECT_ADDRESS)
         {
             JsonNode* sibling = (JsonNode*)(buffer.start + node->sibling); 
-            push_ptr(&valstack, sibling);
-            push_int(&bufend_stack, strIndex);
+            push_ptr(valstack, sibling);
+            push_int(bufend_stack, strIndex);
         }
 
         // Add child to stack if exists
         if (node->child != DEFAULT_OBJECT_ADDRESS)
         {
             JsonNode* child = (JsonNode*)(buffer.start + node->child); 
-            push_ptr(&valstack, child);
-            push_int(&bufend_stack, strIndex + 1);
+            push_ptr(valstack, child);
+            push_int(bufend_stack, strIndex + 1);
         }
 
         // Print current node if it's not empty
@@ -446,21 +517,21 @@ _dump_JsonObject(
 
             destination = _dump_JsonObject_Key(key_buffer, 0, strIndex - 1, destination);
             JsonValue* value = (JsonValue*)(buffer.start + node->data);
-            destination = _dump_JsonValue(value, destination, &valstack, &bufend_stack, &objIndex_stack);
+            destination = _dump_JsonValue(value, destination, valstack, bufend_stack, objIndex_stack, key_buffer);
         }
 
-        if (valstack.stacktop == peek_int(&objIndex_stack))
+        if (valstack->stacktop == peek_int(objIndex_stack))
         {
             *(destination++) = '}';
-            pop_int(&objIndex_stack);
+            pop_int(objIndex_stack);
         }
     }
 
     // Check this at the end, since nested objects will not check for the '}'
-    while (objIndex_stack.stacktop >= 0)
+    while (objIndex_stack->stacktop >= intial_objIndex_stack_top)
     {
         *(destination++) = '}';
-        pop_int(&objIndex_stack);
+        pop_int(objIndex_stack);
     }
 
     return destination;
@@ -468,7 +539,14 @@ _dump_JsonObject(
 
 size_t dump_JsonObject(JsonObject* o, char* destination)
 {
-    char* end = _dump_JsonObject(o, destination);
+    char key_buffer[256];
+    _Stack valstack, bufend_stack, objIndex_stack;
+    valstack.stacktop = -1;
+    bufend_stack.stacktop = -1;
+    objIndex_stack.stacktop = -1;
+
+    char* end = 
+        _dump_JsonObject(o, destination, &valstack, &bufend_stack, &objIndex_stack, key_buffer);
     *end = '\0';
     
     return end - destination;

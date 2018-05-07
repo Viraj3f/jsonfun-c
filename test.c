@@ -122,6 +122,10 @@ void test_arrays()
 
     jd = get_element(array, 4);
     assert(strcmp(jd.data.s, "henlo world") == 0);
+
+    char buffer[256];
+    dump_JsonObject(o, buffer);
+    printf("%s\n", buffer);
 }
 
 void test_nesting()
@@ -183,6 +187,10 @@ void test_nesting()
 
     jd = get_element(array, 1);
     assert(fabs(jd.data.f - f1) > 0.0000000001);
+
+    char buffer[256];
+    dump_JsonObject(o, buffer);
+    printf("%s\n", buffer);
 }
 
 void test_printing()
@@ -230,6 +238,8 @@ void test_printing()
 
     dump_JsonObject(in, buffer);
     printf("%s\n", buffer);
+    const char * expected2 = "{\"i\":{\"ii\":{\"iii\":{}}}}";
+    assert(strcmp(buffer, expected2) == 0);
 }
 
 int main()
