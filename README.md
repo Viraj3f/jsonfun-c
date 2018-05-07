@@ -15,8 +15,20 @@ Json_set_mempool(mempool, &mempool[MEMPOOL_SIZE - 1]);
 
 ### Parsing
 Pass in a string to parse, and get a pointer to a JsonObject.
+Assume the JSON object is:
+```JSON
+{
+    "hi": 123,
+    "arr": [1.0, null, false],
+    "inner": 
+    {
+        "strData": "wohoo",
+    }
+}
+```
+
 ```C
-JsonObject* obj = Json_parse("{\"hi\": 123, \"arr\": [1.0, null, false], \"inner\": {\"strData\": \"woohoo\"}}")
+JsonObject* obj = Json_parse(jsonStr)             // Assume the json string was read. I.e. from a gile.
 
 JsonValue hi = get_value(obj, "hi");
 hi.data.i;                                        // 123
@@ -36,22 +48,24 @@ get_element(inner, "strData").data.s;             // "woohoo"
 ```
 
 ### Modifications to a Json Object
-```C
-// Final structure will be
-// {
-//     "hi": 123,
-//     "arr": [1.0, null, false],
-//     "inner": 
-//     {
-//         "strData": "wohoo",
-//         "intData": 32,
-//         "inner":
-//         {
-//             vals: [true, false]     
-//         }
-//     }
-// }
+The goal is to create the following JSON object:
+```JSON
+{
+    "hi": 123,
+    "arr": [1.0, null, false],
+    "inner": 
+    {
+        "strData": "wohoo",
+        "intData": 32,
+        "inner":
+        {
+            vals: [true, false]     
+        }
+    }
+}
+```
 
+```C
 // Add intData
 int i = 32;
 set_value(inner, "intData", &i, JSON_INT);
