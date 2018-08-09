@@ -1,6 +1,7 @@
 # jsonfun-c
 
-The funnest little json parsing and serialization C library in the world. Lightweight and fast - O(log N) value lookup, and O(1) array indexing. Works with dynamic and static memory allocation. 
+The funnest little json parsing and serialization C library in the world. Lightweight and fast - O(m) value lookup 
+(m is length of string), and O(1) array indexing. Works with dynamic and static memory allocation. 
 
 ## Overview
 This library is designed for ease of use.
