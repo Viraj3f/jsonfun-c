@@ -83,5 +83,7 @@ JsonValue get_element(JsonArray * j, int16_t index);
 
 size_t dump_JsonObject(JsonObject *o, char* destination);
 
+bool parse_JsonObject(char* input, JsonObject** parsed);
+
 #endif
 

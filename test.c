@@ -242,6 +242,19 @@ void test_printing()
     assert(strcmp(buffer, expected2) == 0);
 }
 
+void test_parsing()
+{
+    char* input = "   {   }  ";
+    JsonObject* parsed;
+    parse_JsonObject(input, &parsed);
+
+    char buffer[256];
+    dump_JsonObject(parsed, buffer);
+    printf("%s\n", buffer);
+    assert(strcmp(buffer, "{}") == 0);
+}
+
+
 int main()
 {
     // Statically allocate 1024kb.
@@ -258,6 +271,9 @@ int main()
 
     Json_set_mempool(mempool, &mempool[MEMPOOL_SIZE - 1]);
     test_printing();
+
+    Json_set_mempool(mempool, &mempool[MEMPOOL_SIZE - 1]);
+    test_parsing();
 
     
     return 0;

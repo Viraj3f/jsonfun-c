@@ -15,6 +15,8 @@
 
 #include "json.h"
 
+#define DEBUG
+
 
 typedef struct Mempool
 {
@@ -550,4 +552,151 @@ size_t dump_JsonObject(JsonObject* o, char* destination)
     *end = '\0';
     
     return end - destination;
+}
+
+enum JsonParseTypes
+{
+    Parse_JsonObjectStart,
+    Parse_JsonElements,
+    Parse_JsonString,
+    Parse_JsonElement,
+};
+
+typedef struct _Parser
+{
+    char* input;
+    char* buffer;
+    _Stack jsonParseStack;
+    _Stack jsonObjectStack;
+    _Stack jsonBufferStack;
+} _Parser;
+
+void next_token(_Parser* p)
+{
+    if (*(p->input))
+    {
+        p->input++;
+    }
+}
+
+void skip_whitespace(_Parser* parser)
+{
+    while (*(parser->input))
+    {
+        switch (*(parser->input))
+        {
+            case ' ':
+            case '\r':
+            case '\t':
+            case '\n':
+                break;
+            default:
+                return;
+        }
+        next_token(parser);
+    }
+}
+
+bool parse_JsonObjectStart(_Parser* parser)
+{
+    skip_whitespace(parser);
+    while (true)
+    {
+        switch (*(parser->input))
+        {
+            case '{':
+                pop_int(&parser->jsonParseStack);
+                push_int(&parser->jsonParseStack, Parse_JsonElements);
+                push_ptr(&parser->jsonObjectStack, create_JsonObject());
+                return true;
+            default:
+                return false;
+        }
+        next_token(parser);
+    }
+}
+
+bool parse_JsonObjectElements(_Parser* parser)
+{
+    skip_whitespace(parser);
+    while (true)
+    {
+        switch (*(parser->input))
+        {
+            case '}':
+                pop_int(&parser->jsonParseStack);
+                if (parser->jsonObjectStack.stacktop > 0)
+                {
+                    pop_ptr(&parser->jsonObjectStack);
+                }
+                return true;
+            case '"':
+                push_int(&parser->jsonParseStack, Parse_JsonElement);
+                push_int(&parser->jsonParseStack, Parse_JsonString);
+                return true;
+            default:
+                return false;
+        }
+        next_token(parser);
+    }
+}
+
+bool parse_JsonElement(_Parser * parser)
+{
+    skip_whitespace(parser);
+    switch (*(parser->input))
+    {
+        case ':':
+            break;
+        default:
+            return false;
+    }
+
+    return true;
+}
+
+bool parse_JsonObject(char* input, JsonObject** parsed)
+{
+    char buffer[1024];
+    _Parser parser;
+    parser.input = input;
+    parser.buffer = buffer;
+    parser.jsonParseStack.stacktop = -1;
+    parser.jsonObjectStack.stacktop = -1;
+    parser.jsonBufferStack.stacktop = -1;
+
+    push_int(&parser.jsonParseStack, Parse_JsonObjectStart);
+
+    while (parser.jsonParseStack.stacktop >= 0)
+    {
+        switch (peek_int(&parser.jsonParseStack))
+        {
+            case Parse_JsonObjectStart:
+                #ifdef DEBUG
+                printf("Parsing object start\n");
+                #endif
+                if (!parse_JsonObjectStart(&parser))
+                {
+                    return false;
+                }
+                next_token(&parser);
+                break;
+            case Parse_JsonElements:
+                #ifdef DEBUG
+                printf("Parsing object elements\n");
+                #endif
+                if (!parse_JsonObjectElements(&parser))
+                {
+                    return false;
+                }
+                next_token(&parser);
+                break;
+            case Parse_JsonString:
+                break;
+        }
+    }
+
+    *parsed = pop_ptr(&parser.jsonObjectStack);
+
+    return true;
 }

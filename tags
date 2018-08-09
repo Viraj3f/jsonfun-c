@@ -1,0 +1,91 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.8	//
+CC	Makefile	/^CC=clang$/;"	m
+CFLAGS	Makefile	/^CFLAGS=-W -Wall -Wextra -pedantic$/;"	m
+DEFAULT_LETTER	src/json.c	/^const unsigned char DEFAULT_LETTER = 0x80;$/;"	v
+DEFAULT_OBJECT_ADDRESS	src/json.c	/^const u_int16_t DEFAULT_OBJECT_ADDRESS = 0;$/;"	v
+FILES	Makefile	/^FILES=test.c src\/json.c$/;"	m
+INDEX_OUT_OF_BOUNDS	src/json.h	/^    INDEX_OUT_OF_BOUNDS = -3$/;"	e	enum:__anon2
+INVALID_TYPE	src/json.h	/^    INVALID_TYPE = -1,$/;"	e	enum:__anon2
+JSON_ARRAY	src/json.h	/^    JSON_ARRAY,$/;"	e	enum:__anon1
+JSON_BOOL	src/json.h	/^    JSON_BOOL,$/;"	e	enum:__anon1
+JSON_ERROR	src/json.h	/^    JSON_ERROR$/;"	e	enum:__anon1
+JSON_FLOAT	src/json.h	/^    JSON_FLOAT,$/;"	e	enum:__anon1
+JSON_H	src/json.h	/^#define JSON_H$/;"	d
+JSON_INT	src/json.h	/^    JSON_INT,$/;"	e	enum:__anon1
+JSON_NULL	src/json.h	/^    JSON_NULL,$/;"	e	enum:__anon1
+JSON_OBJECT	src/json.h	/^    JSON_OBJECT,$/;"	e	enum:__anon1
+JSON_STRING	src/json.h	/^    JSON_STRING,$/;"	e	enum:__anon1
+JsonArray	src/json.h	/^typedef struct JsonArray {$/;"	s
+JsonArray	src/json.h	/^} JsonArray;$/;"	t	typeref:struct:JsonArray
+JsonDataType	src/json.h	/^} JsonDataType;$/;"	t	typeref:enum:__anon1
+JsonError	src/json.h	/^} JsonError;$/;"	t	typeref:enum:__anon2
+JsonNode	src/json.h	/^typedef struct JsonNode$/;"	s
+JsonNode	src/json.h	/^} JsonNode;$/;"	t	typeref:struct:JsonNode
+JsonObject	src/json.h	/^typedef struct JsonObject$/;"	s
+JsonObject	src/json.h	/^} JsonObject;$/;"	t	typeref:struct:JsonObject
+JsonValue	src/json.h	/^typedef struct JsonValue$/;"	s
+JsonValue	src/json.h	/^} JsonValue;$/;"	t	typeref:struct:JsonValue
+Json_set_mempool	src/json.c	/^void Json_set_mempool(void * start, void * end)$/;"	f
+MEMPOOL_SIZE	test.c	/^    #define MEMPOOL_SIZE /;"	d	file:
+MISSING_KEY	src/json.h	/^    MISSING_KEY = -2,$/;"	e	enum:__anon2
+Mempool	src/json.c	/^typedef struct Mempool$/;"	s	file:
+Mempool	src/json.c	/^} Mempool;$/;"	t	typeref:struct:Mempool	file:
+SRC_DIR	Makefile	/^SRC_DIR=src\/$/;"	m
+_JSON_FALSE_STR	src/json.c	/^char * _JSON_FALSE_STR = "false";$/;"	v
+_JSON_NULL_STR	src/json.c	/^char * _JSON_NULL_STR = "null";$/;"	v
+_JSON_TRUE_STR	src/json.c	/^char * _JSON_TRUE_STR = "true";$/;"	v
+_Stack	src/json.c	/^typedef struct _Stack$/;"	s	file:
+_Stack	src/json.c	/^} _Stack;$/;"	t	typeref:struct:_Stack	file:
+_alloc_JsonElement	src/json.c	/^int _alloc_JsonElement(JsonValue * jd, void * data)$/;"	f
+_dump_JsonArray	src/json.c	/^_dump_JsonArray($/;"	f
+_dump_JsonObject	src/json.c	/^_dump_JsonObject($/;"	f
+_dump_JsonObject_Key	src/json.c	/^char* _dump_JsonObject_Key(char* buffer, int bufStart, int bufEnd, char* destination)$/;"	f
+_dump_JsonValue	src/json.c	/^_dump_JsonValue($/;"	f
+_json_alloc	src/json.c	/^void * _json_alloc(size_t size, size_t alignment) $/;"	f
+_set_default_JsonNode	src/json.c	/^void _set_default_JsonNode(JsonNode* node)$/;"	f
+_set_value	src/json.c	/^int _set_value(JsonObject * obj, char * key, JsonValue* value)$/;"	f
+a	src/json.h	/^        struct JsonArray * a;$/;"	m	union:JsonValue::__anon3	typeref:struct:JsonValue::__anon3::JsonArray
+b	src/json.h	/^        bool b;$/;"	m	union:JsonValue::__anon3
+buffer	src/json.c	/^Mempool buffer = { .end=NULL, .top=NULL };$/;"	v
+child	src/json.h	/^    int16_t child;$/;"	m	struct:JsonNode
+create_JsonArray	src/json.c	/^JsonArray * create_JsonArray(int16_t length)$/;"	f
+create_JsonObject	src/json.c	/^JsonObject* create_JsonObject()$/;"	f
+data	src/json.h	/^    int16_t data;$/;"	m	struct:JsonNode
+data	src/json.h	/^    } data;$/;"	m	struct:JsonValue	typeref:union:JsonValue::__anon3
+dump_JsonObject	src/json.c	/^size_t dump_JsonObject(JsonObject* o, char* destination)$/;"	f
+e	src/json.h	/^        JsonError e;$/;"	m	union:JsonValue::__anon3
+elements	src/json.h	/^    int16_t elements;$/;"	m	struct:JsonArray
+end	src/json.c	/^    int8_t * end;$/;"	m	struct:Mempool	file:
+f	src/json.h	/^        float f;$/;"	m	union:JsonValue::__anon3
+get_element	src/json.c	/^JsonValue get_element(JsonArray * j, int16_t index)$/;"	f
+get_value	src/json.c	/^JsonValue get_value(JsonObject * obj, char * key)$/;"	f
+i	src/json.h	/^        int i;$/;"	m	union:JsonValue::__anon3
+length	src/json.h	/^    int16_t length;$/;"	m	struct:JsonArray
+letter	src/json.h	/^    unsigned char letter;$/;"	m	struct:JsonNode
+main	test.c	/^int main()$/;"	f
+n	src/json.h	/^        void * n;$/;"	m	union:JsonValue::__anon3
+node	src/json.h	/^    JsonNode node;$/;"	m	struct:JsonObject
+o	src/json.h	/^        struct JsonObject* o;$/;"	m	union:JsonValue::__anon3	typeref:struct:JsonValue::__anon3::JsonObject
+peek_int	src/json.c	/^int peek_int(_Stack* s)$/;"	f
+pop_int	src/json.c	/^int pop_int(_Stack* s)$/;"	f
+pop_ptr	src/json.c	/^void* pop_ptr(_Stack* s)$/;"	f
+push_int	src/json.c	/^int push_int(_Stack* s, int i)$/;"	f
+push_ptr	src/json.c	/^int push_ptr(_Stack* s, void* p)$/;"	f
+s	src/json.h	/^        char* s;$/;"	m	union:JsonValue::__anon3
+set_element	src/json.c	/^int set_element(JsonArray * j, int16_t index, void * data, JsonDataType type)$/;"	f
+set_value	src/json.c	/^int set_value(JsonObject * obj, char * key, void* data, JsonDataType type)$/;"	f
+sibling	src/json.h	/^    int16_t sibling;$/;"	m	struct:JsonNode
+stack	src/json.c	/^    void* stack[128];$/;"	m	struct:_Stack	file:
+stacktop	src/json.c	/^    int stacktop;$/;"	m	struct:_Stack	file:
+start	src/json.c	/^    int8_t * start;$/;"	m	struct:Mempool	file:
+test_arrays	test.c	/^void test_arrays()$/;"	f
+test_construction	test.c	/^void test_construction()$/;"	f
+test_nesting	test.c	/^void test_nesting()$/;"	f
+test_printing	test.c	/^void test_printing()$/;"	f
+top	src/json.c	/^    int8_t * top;$/;"	m	struct:Mempool	file:
+type	src/json.h	/^    JsonDataType type;$/;"	m	struct:JsonValue
