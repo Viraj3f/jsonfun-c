@@ -3,20 +3,21 @@
 //  JSON
 //
 //  Created by Viraj Bangari on 2018-04-24.
-//  Copyright © 2018 Viraj. All rights reserved.
-//
+//  Copyright © 2018 Viraj Bangari. All rights reserved.
 
+#define DEBUG_JSON
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
-#include <stdalign.h>
 #include <stdint.h>
-
+#include <stdalign.h>
+// Add alignof for C99 compatibility
+// Credit to Martin Buchholz from: http://www.wambold.com/Martin/writings/alignof.html
+#ifndef alignof
+    #define alignof(type) offsetof (struct { char c; type member; }, member)
+#endif
 #include "json.h"
-
-#define DEBUG
-
 
 typedef struct Mempool
 {
@@ -27,11 +28,16 @@ typedef struct Mempool
 
 Mempool buffer = { .end=NULL, .top=NULL };
 
-void Json_set_mempool(void * start, void * end)
+void Json_set_mempool(void * start, size_t size)
 {
     buffer.start = start;
     buffer.top = start;
-    buffer.end = end;
+    buffer.end = buffer.start + size;
+}
+
+void Json_reset_mempool()
+{
+    buffer.top = buffer.start;
 }
 
 void * _json_alloc(size_t size, size_t alignment) 
@@ -61,7 +67,7 @@ void * _json_alloc(size_t size, size_t alignment)
         loc = NULL;
     }
 
-    #ifdef DEBUG
+    #ifdef DEBUG_JSON
     printf("Requested: %lu ", size);
     printf("Alignment: %lu ", alignment);
     printf("Padding: %d ", padding);
@@ -90,13 +96,11 @@ JsonObject* create_JsonObject()
 {
     JsonNode node;
     _set_default_JsonNode(&node);
-
     JsonObject* obj = _json_alloc(sizeof(JsonObject), alignof(JsonObject));
     obj->node = node;
 
     return obj;
 }
-
 
 JsonValue get_value(JsonObject * obj, char * key)
 {
@@ -139,7 +143,7 @@ int _alloc_JsonElement(JsonValue * jd, void * data)
             break;
         }
         case JSON_BOOL:
-            jd->data.b = ((bool *) data);
+            jd->data.b = *((bool *) data);
             break;
         case JSON_INT:
             jd->data.i = *((int *) data);
@@ -226,7 +230,42 @@ int _set_value(JsonObject * obj, char * key, JsonValue* value)
     return 0;
 }
 
-int set_value(JsonObject * obj, char * key, void* data, JsonDataType type)
+bool set_value_null(JsonObject * obj, char * key)
+{
+    return set_value(obj, key, NULL, JSON_NULL);
+}
+
+bool set_value_string(JsonObject * obj, char * key, char * str)
+{
+    return set_value(obj, key, str, JSON_STRING);
+}
+
+bool set_value_bool(JsonObject * obj, char * key, bool data)
+{
+    return set_value(obj, key, &data, JSON_BOOL);
+}
+
+bool set_value_int(JsonObject * obj, char * key, int data)
+{
+    return set_value(obj, key, &data, JSON_INT);
+}
+
+bool set_value_float(JsonObject * obj, char * key, float data)
+{
+    return set_value(obj, key, &data, JSON_FLOAT);
+}
+
+bool set_value_object(JsonObject * obj, char * key, JsonObject * object)
+{
+    return set_value(obj, key, object, JSON_OBJECT);
+}
+
+bool set_value_array(JsonObject * obj, char * key, JsonArray * array)
+{
+    return set_value(obj, key, array, JSON_ARRAY);
+}
+
+bool set_value(JsonObject * obj, char * key, void* data, JsonDataType type)
 {
     JsonValue* jd = _json_alloc(sizeof(JsonValue), alignof(JsonValue));
     jd->type = type;
@@ -235,13 +274,12 @@ int set_value(JsonObject * obj, char * key, void* data, JsonDataType type)
 
     if (status < 0)
     {
-        return status;
+        return false;
     }
 
     _set_value(obj, key, jd);
-    return 0;
+    return true;
 }
-
 
 JsonArray * create_JsonArray(int16_t length)
 {
@@ -274,15 +312,17 @@ JsonValue get_element(JsonArray * j, int16_t index)
     return ((JsonValue*)(buffer.start + j->elements))[index];
 }
 
+#define JSON_STACK_LENGTH 128
+
 typedef struct _Stack
 {
-    void* stack[128];
+    void* stack[JSON_STACK_LENGTH];
     int stacktop;
 } _Stack;
 
 int push_ptr(_Stack* s, void* p)
 {
-    if (s->stacktop >= 127)
+    if (s->stacktop >= JSON_STACK_LENGTH - 1)
     {
         printf("Json: Stack overflow\n");
         return -1;
@@ -296,7 +336,7 @@ int push_ptr(_Stack* s, void* p)
 
 int push_int(_Stack* s, int i)
 {
-    if (s->stacktop >= 127)
+    if (s->stacktop >= JSON_STACK_LENGTH - 1)
     {
         printf("Json: Stack overflow\n");
         return -1;
@@ -316,6 +356,12 @@ void* pop_ptr(_Stack* s)
     return rval;
 }
 
+void* peek_ptr(_Stack* s)
+{
+    void *rval = s->stack[s->stacktop];
+    return rval;
+}
+
 int pop_int(_Stack* s)
 {
     int rval = ((int*)s->stack)[s->stacktop];
@@ -330,9 +376,9 @@ int peek_int(_Stack* s)
     return rval;
 }
 
-char * _JSON_NULL_STR = "null";
-char * _JSON_FALSE_STR = "false";
-char * _JSON_TRUE_STR = "true";
+char _JSON_NULL_STR[] = "null";
+char _JSON_FALSE_STR[] = "false";
+char _JSON_TRUE_STR[] = "true";
 
 char* _dump_JsonObject_Key(char* buffer, int bufStart, int bufEnd, char* destination)
 {
@@ -407,6 +453,48 @@ _dump_JsonArray(
     }
     *(destination++) = ']';
     return destination;
+}
+
+void strcpyescaped(char * source, char * destination)
+{
+    while (*source)
+    {
+        switch (*source)
+        {
+            case '"':
+                *(destination++) = '\\';
+                *(destination++) = '"';
+                break;
+            case '\\':
+                *(destination++) = '\\';
+                *(destination++) = '\\';
+                break;
+            case '\b':
+                *(destination++) = '\\';
+                *(destination++) = 'b';
+                break;
+            case '\f':
+                *(destination++) = '\\';
+                *(destination++) = 'f';
+                break;
+            case '\n':
+                *(destination++) = '\\';
+                *(destination++) = 'n';
+                break;
+            case '\r':
+                *(destination++) = '\\';
+                *(destination++) = 'r';
+                break;
+            case '\t':
+                *(destination++) = '\\';
+                *(destination++) = 't';
+                break;
+            default:
+                *destination = *source;
+                break;
+        }
+        source++;
+    }
 }
 
 char * 
@@ -557,9 +645,11 @@ size_t dump_JsonObject(JsonObject* o, char* destination)
 enum JsonParseTypes
 {
     Parse_JsonObjectStart,
-    Parse_JsonElements,
+    Parse_JsonMembers,
+    Parse_JsonValue,
+    Parse_JsonValueSeparator,
     Parse_JsonString,
-    Parse_JsonElement,
+    Parse_JsonFloat,
 };
 
 typedef struct _Parser
@@ -573,10 +663,10 @@ typedef struct _Parser
 
 void next_token(_Parser* p)
 {
-    if (*(p->input))
-    {
-        p->input++;
-    }
+    #ifdef DEBUG_JSON
+    printf("Current token: '%c'\n", *p->input);
+    #endif
+    p->input++;
 }
 
 void skip_whitespace(_Parser* parser)
@@ -606,8 +696,9 @@ bool parse_JsonObjectStart(_Parser* parser)
         {
             case '{':
                 pop_int(&parser->jsonParseStack);
-                push_int(&parser->jsonParseStack, Parse_JsonElements);
+                push_int(&parser->jsonParseStack, Parse_JsonMembers);
                 push_ptr(&parser->jsonObjectStack, create_JsonObject());
+                next_token(parser);
                 return true;
             default:
                 return false;
@@ -616,7 +707,7 @@ bool parse_JsonObjectStart(_Parser* parser)
     }
 }
 
-bool parse_JsonObjectElements(_Parser* parser)
+bool parse_JsonMembers(_Parser* parser)
 {
     skip_whitespace(parser);
     while (true)
@@ -627,12 +718,19 @@ bool parse_JsonObjectElements(_Parser* parser)
                 pop_int(&parser->jsonParseStack);
                 if (parser->jsonObjectStack.stacktop > 0)
                 {
-                    pop_ptr(&parser->jsonObjectStack);
+                    JsonObject* child = pop_ptr(&parser->jsonObjectStack);
+                    JsonObject* parent = peek_ptr(&parser->jsonObjectStack);
+
+                    parser->buffer = pop_ptr(&parser->jsonBufferStack);
+                    set_value_object(parent, parser->buffer, child);
                 }
+                next_token(parser);
                 return true;
             case '"':
-                push_int(&parser->jsonParseStack, Parse_JsonElement);
+                push_int(&parser->jsonParseStack, Parse_JsonValueSeparator);
+                push_int(&parser->jsonParseStack, Parse_JsonValue);
                 push_int(&parser->jsonParseStack, Parse_JsonString);
+                next_token(parser);
                 return true;
             default:
                 return false;
@@ -641,12 +739,77 @@ bool parse_JsonObjectElements(_Parser* parser)
     }
 }
 
-bool parse_JsonElement(_Parser * parser)
+bool parse_EscapedChar(_Parser * parser)
+{
+    next_token(parser);
+    switch (*(parser->input))
+    {
+        case '"':
+        *(parser->buffer++) = '\"';
+            break;
+        case '\\':
+            *(parser->buffer++) = '\\';
+            break;
+        case '/':
+            *(parser->buffer++) = '/';
+            break;
+        case 'b':
+            *(parser->buffer++) = '\b';
+            break;
+        case 'f':
+            *(parser->buffer++) = '\f';
+            break;
+        case 'n':
+            *(parser->buffer++) = '\n';
+            break;
+        case 'r':
+            *(parser->buffer++) = '\r';
+            break;
+        case 't':
+            *(parser->buffer++) = '\t';
+            break;
+        default:
+            return false;
+    }
+    next_token(parser);
+
+    return true;
+}
+
+bool parse_JsonString(_Parser * parser)
+{
+    push_ptr(&parser->jsonBufferStack, parser->buffer);
+    while (*(parser->input))
+    {
+        switch (*(parser->input))
+        {
+            case '"':
+                *(parser->buffer++) = '\0';
+                pop_int(&parser->jsonParseStack);
+                next_token(parser);
+                return true;
+            case '\\':
+                if (!parse_EscapedChar(parser))
+                {
+                    return false;
+                }
+                break;
+            default:
+                *(parser->buffer++) = *(parser->input);
+        }
+        next_token(parser);
+    }
+
+    return true;
+}
+
+bool parse_Colon(_Parser * parser)
 {
     skip_whitespace(parser);
     switch (*(parser->input))
     {
         case ':':
+            next_token(parser);
             break;
         default:
             return false;
@@ -655,43 +818,164 @@ bool parse_JsonElement(_Parser * parser)
     return true;
 }
 
+bool parse_JsonValue(_Parser * parser)
+{
+    parse_Colon(parser);
+    skip_whitespace(parser);
+    pop_int(&parser->jsonParseStack);
+    switch (*(parser->input))
+    {
+        case '"':
+            next_token(parser);
+            push_int(&parser->jsonParseStack, Parse_JsonString);
+            parse_JsonString(parser);
+
+            char* value = pop_ptr(&parser->jsonBufferStack);
+            parser->buffer = pop_ptr(&parser->jsonBufferStack);
+            JsonObject * o = peek_ptr(&parser->jsonObjectStack);
+            set_value_string(o, parser->buffer, value);
+            break;
+        case 'n':
+        {
+            for (unsigned long i = 0; i < sizeof(_JSON_NULL_STR) - 1; i++)
+            {
+                if (*(parser->input) != _JSON_NULL_STR[i]) return false;
+                next_token(parser);
+            }
+            JsonObject * o = peek_ptr(&parser->jsonObjectStack);
+            parser->buffer = pop_ptr(&parser->jsonBufferStack);
+            set_value_null(o, parser->buffer);
+            break;
+        }
+        case 't':
+        {
+            for (unsigned long i = 0; i < sizeof(_JSON_TRUE_STR) - 1; i++)
+            {
+                if (*(parser->input) != _JSON_TRUE_STR[i]) return false;
+                next_token(parser);
+            }
+            JsonObject * o = peek_ptr(&parser->jsonObjectStack);
+            parser->buffer = pop_ptr(&parser->jsonBufferStack);
+            set_value_bool(o, parser->buffer, true);
+            break;
+        }
+        case 'f':
+        {
+            for (unsigned long i = 0; i < sizeof(_JSON_FALSE_STR) - 1; i++)
+            {
+                if (*(parser->input) != _JSON_FALSE_STR[i]) return false;
+                next_token(parser);
+            }
+            JsonObject * o = peek_ptr(&parser->jsonObjectStack);
+            parser->buffer = pop_ptr(&parser->jsonBufferStack);
+            set_value_bool(o, parser->buffer, false);
+            break;
+        }
+        case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+        case '8':
+        case '9':
+        case '-':
+            push_int(&parser->jsonParseStack, Parse_JsonFloat);
+            break;
+        case '{':
+            push_int(&parser->jsonParseStack, Parse_JsonObjectStart);
+            break;
+        default:
+            return false;
+    }
+
+    return true;
+}
+
+bool parse_JsonValueSeparator(_Parser* parser)
+{
+    skip_whitespace(parser);
+    while (true)
+    {
+        switch (*(parser->input))
+        {
+            case '}':
+                pop_int(&parser->jsonParseStack);
+                return true;
+            case ',':
+                next_token(parser);
+                pop_int(&parser->jsonParseStack);
+                return true;
+            default:
+                return false;
+        }
+    }
+}
+
 bool parse_JsonObject(char* input, JsonObject** parsed)
 {
     char buffer[1024];
     _Parser parser;
     parser.input = input;
-    parser.buffer = buffer;
+    parser.buffer = &buffer[0];
     parser.jsonParseStack.stacktop = -1;
     parser.jsonObjectStack.stacktop = -1;
     parser.jsonBufferStack.stacktop = -1;
 
+    skip_whitespace(&parser);
     push_int(&parser.jsonParseStack, Parse_JsonObjectStart);
-
     while (parser.jsonParseStack.stacktop >= 0)
     {
-        switch (peek_int(&parser.jsonParseStack))
+        switch ((enum JsonParseTypes) peek_int(&parser.jsonParseStack))
         {
             case Parse_JsonObjectStart:
-                #ifdef DEBUG
-                printf("Parsing object start\n");
+                #ifdef DEBUG_JSON
+                printf("Parsing object\n");
                 #endif
                 if (!parse_JsonObjectStart(&parser))
                 {
                     return false;
                 }
-                next_token(&parser);
                 break;
-            case Parse_JsonElements:
-                #ifdef DEBUG
-                printf("Parsing object elements\n");
+            case Parse_JsonMembers:
+                #ifdef DEBUG_JSON
+                printf("Parsing object members\n");
                 #endif
-                if (!parse_JsonObjectElements(&parser))
+                if (!parse_JsonMembers(&parser))
                 {
                     return false;
                 }
-                next_token(&parser);
                 break;
             case Parse_JsonString:
+                #ifdef DEBUG_JSON
+                printf("Parsing json string\n");
+                #endif
+                if (!parse_JsonString(&parser))
+                {
+                    return false;
+                }
+                break;
+            case Parse_JsonFloat:
+                break;
+            case Parse_JsonValue:
+                #ifdef DEBUG_JSON
+                printf("Parsing value\n");
+                #endif
+                if (!parse_JsonValue(&parser))
+                {
+                    return false;
+                }
+                break;
+            case Parse_JsonValueSeparator:
+                #ifdef DEBUG_JSON
+                printf("Parsing value separator\n");
+                #endif
+                if (!parse_JsonValueSeparator(&parser))
+                {
+                    return false;
+                }
                 break;
         }
     }

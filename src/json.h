@@ -54,7 +54,6 @@ typedef struct JsonArray {
     int16_t elements;
 } JsonArray;
 
-// Node in the prefix trie that allows
 typedef struct JsonNode
 {
     int16_t child;
@@ -69,12 +68,23 @@ typedef struct JsonObject
 } JsonObject;
 
 // Sets the beginning and end of the memory allocate for the JSON object
-void Json_set_mempool(void * start, void * end);
+void Json_set_mempool(void * start, size_t size);
+
+// Resets the mempool, allowing it to be fully used again.
+void Json_reset_mempool();
 
 // Functions for creating json objects
 JsonObject* create_JsonObject(void);
 JsonValue get_value(JsonObject * obj, char * key);
-int set_value(JsonObject * obj, char * key, void* data, JsonDataType type);
+
+bool set_value_null(JsonObject * obj, char * key);
+bool set_value_string(JsonObject * obj, char * key, char * str);
+bool set_value_bool(JsonObject * obj, char * key, bool data);
+bool set_value_int(JsonObject * obj, char * key, int data);
+bool set_value_float(JsonObject * obj, char * key, float data);
+bool set_value_object(JsonObject * obj, char * key, JsonObject * object);
+bool set_value_array(JsonObject * obj, char * key, JsonArray * array);
+bool set_value(JsonObject * obj, char * key, void* data, JsonDataType type);
 
 // Function for creating json arrays
 JsonArray * create_JsonArray(int16_t length);

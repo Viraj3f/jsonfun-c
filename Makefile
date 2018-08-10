@@ -1,5 +1,5 @@
 CC=clang
-CFLAGS=-W -Wall -Wextra -pedantic
+CFLAGS=-W -Wall -Wextra -pedantic -std=c11
 FILES=test.c src/json.c
 SRC_DIR=src/
 

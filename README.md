@@ -3,6 +3,8 @@
 The funnest little json parsing and serialization C library in the world. Lightweight and fast - O(m) value lookup 
 (m is length of string), and O(1) array indexing. Works with dynamic and static memory allocation. 
 
+This library supports C99+, but one would ideally be using C11.
+
 ## Overview
 This library is designed for ease of use.
 
@@ -128,7 +130,7 @@ set_value(innerInner, "vals", innerInnerArray, JSON_ARRAY);
 ### Dump
 Pass in a buffer, and get the number of bytes written, not including the null character
 ```C
-rhar buffer[256];
+char buffer[256];
 size_t nBytes = dump_JsonObject(obj, buffer); // Number of bytes used not including null character.
 ```
 
