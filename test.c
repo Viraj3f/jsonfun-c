@@ -266,6 +266,8 @@ void test_parsing()
     parse_JsonObject(input2, &parsed2);
     dump_JsonObject(parsed2, buffer);
     printf("%s\n", buffer);
+    char* expected2 = "{\"null\":null,\"true\":true,\"false\":false,\"inner\":{\"innerinner\":\"thisisalongstring\"}}";
+    assert(strcmp(buffer, expected2) == 0);
 }
 
 
