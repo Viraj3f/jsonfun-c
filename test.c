@@ -268,6 +268,14 @@ void test_parsing()
     printf("%s\n", buffer);
     char* expected2 = "{\"null\":null,\"true\":true,\"false\":false,\"inner\":{\"innerinner\":\"thisisalongstring\"}}";
     assert(strcmp(buffer, expected2) == 0);
+
+    char* input3 = "{\"a\": 1, \"b\": 32.1e-2,\"c\": -3.012, \"d\": {\"\": -33}}";
+    JsonObject* parsed3;
+    parse_JsonObject(input3, &parsed3);
+    dump_JsonObject(parsed3, buffer);
+    printf("%s\n", buffer);
+    char* expected3 = "{\"a\":1,\"b\":0.321,\"c\":-3.012,\"d\":{\"\":-33}}";
+    assert(strcmp(buffer, expected3) == 0);
 }
 
 
@@ -290,7 +298,6 @@ int main()
 
     Json_reset_mempool();
     test_parsing();
-
     
     return 0;
 }
