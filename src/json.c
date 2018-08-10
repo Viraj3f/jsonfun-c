@@ -811,6 +811,7 @@ bool parse_Colon(_Parser * parser)
     switch (*(parser->input))
     {
         case ':':
+            pop_int(&parser->jsonParseStack);
             next_token(parser);
             break;
         default:
@@ -957,6 +958,7 @@ bool parse_JsonObject(char* input, JsonObject** parsed)
                 {
                     return false;
                 }
+                break;
             case Parse_JsonString:
                 #ifdef DEBUG_JSON
                 printf("Parsing json string\n");
