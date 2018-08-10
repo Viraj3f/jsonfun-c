@@ -647,6 +647,7 @@ enum JsonParseTypes
     Parse_JsonObjectStart,
     Parse_JsonMembers,
     Parse_JsonValue,
+    Parse_Colon,
     Parse_JsonValueSeparator,
     Parse_JsonString,
     Parse_JsonFloat,
@@ -729,6 +730,7 @@ bool parse_JsonMembers(_Parser* parser)
             case '"':
                 push_int(&parser->jsonParseStack, Parse_JsonValueSeparator);
                 push_int(&parser->jsonParseStack, Parse_JsonValue);
+                push_int(&parser->jsonParseStack, Parse_Colon);
                 push_int(&parser->jsonParseStack, Parse_JsonString);
                 next_token(parser);
                 return true;
@@ -820,7 +822,6 @@ bool parse_Colon(_Parser * parser)
 
 bool parse_JsonValue(_Parser * parser)
 {
-    parse_Colon(parser);
     skip_whitespace(parser);
     pop_int(&parser->jsonParseStack);
     switch (*(parser->input))
@@ -948,6 +949,14 @@ bool parse_JsonObject(char* input, JsonObject** parsed)
                     return false;
                 }
                 break;
+            case Parse_Colon:
+                #ifdef DEBUG_JSON
+                printf("Parsing colon\n");
+                #endif
+                if (!parse_Colon(&parser))
+                {
+                    return false;
+                }
             case Parse_JsonString:
                 #ifdef DEBUG_JSON
                 printf("Parsing json string\n");
