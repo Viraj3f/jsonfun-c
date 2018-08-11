@@ -656,13 +656,22 @@ enum JsonParseTypes
     Parse_JsonNumber,
 };
 
+enum JsonDeserializeTypes
+{
+    Deserialize_JsonObject,
+    Deserialize_JsonArray,
+};
+
 typedef struct _Parser
 {
     char* input;
     char* buffer;
+    JsonValue* arrayBuffer;
     _Stack jsonParseStack;
     _Stack jsonObjectStack;
     _Stack jsonBufferStack;
+    _Stack jsonDeserializeStack;
+    _Stack jsonArrayBufferStack;
 } _Parser;
 
 void next_token(_Parser* p)
@@ -703,6 +712,7 @@ bool parse_JsonObjectStart(_Parser* parser)
                 pop_int(&parser->jsonParseStack);
                 push_int(&parser->jsonParseStack, Parse_JsonMembers);
                 push_ptr(&parser->jsonObjectStack, create_JsonObject());
+                push_int(&parser->jsonDeserializeStack, Deserialize_JsonObject);
                 next_token(parser);
                 return true;
             default:
@@ -720,14 +730,17 @@ bool parse_JsonMembers(_Parser* parser)
         switch (*(parser->input))
         {
             case '}':
+                pop_int(&parser->jsonDeserializeStack);
                 pop_int(&parser->jsonParseStack);
                 if (parser->jsonObjectStack.stacktop > 0)
                 {
                     JsonObject* child = pop_ptr(&parser->jsonObjectStack);
-                    JsonObject* parent = peek_ptr(&parser->jsonObjectStack);
-
-                    parser->buffer = pop_ptr(&parser->jsonBufferStack);
-                    set_value_object(parent, parser->buffer, child);
+                    if (peek_int(&parser->jsonDeserializeStack) == Deserialize_JsonObject)
+                    {
+                        JsonObject* parent = peek_ptr(&parser->jsonObjectStack);
+                        parser->buffer = pop_ptr(&parser->jsonBufferStack);
+                        set_value_object(parent, parser->buffer, child);
+                    }
                 }
                 next_token(parser);
                 return true;
@@ -839,9 +852,12 @@ bool parse_JsonValue(_Parser * parser)
             parse_JsonString(parser);
 
             char* value = pop_ptr(&parser->jsonBufferStack);
-            parser->buffer = pop_ptr(&parser->jsonBufferStack);
-            JsonObject * o = peek_ptr(&parser->jsonObjectStack);
-            set_value_string(o, parser->buffer, value);
+            if (peek_int(&parser->jsonDeserializeStack) == Deserialize_JsonObject)
+            {
+                parser->buffer = pop_ptr(&parser->jsonBufferStack);
+                JsonObject * o = peek_ptr(&parser->jsonObjectStack);
+                set_value_string(o, parser->buffer, value);
+            }
             break;
         case 'n':
         {
@@ -850,9 +866,13 @@ bool parse_JsonValue(_Parser * parser)
                 if (*(parser->input) != _JSON_NULL_STR[i]) return false;
                 next_token(parser);
             }
-            JsonObject * o = peek_ptr(&parser->jsonObjectStack);
-            parser->buffer = pop_ptr(&parser->jsonBufferStack);
-            set_value_null(o, parser->buffer);
+
+            if (peek_int(&parser->jsonDeserializeStack) == Deserialize_JsonObject)
+            {
+                JsonObject * o = peek_ptr(&parser->jsonObjectStack);
+                parser->buffer = pop_ptr(&parser->jsonBufferStack);
+                set_value_null(o, parser->buffer);
+            }
             break;
         }
         case 't':
@@ -862,9 +882,13 @@ bool parse_JsonValue(_Parser * parser)
                 if (*(parser->input) != _JSON_TRUE_STR[i]) return false;
                 next_token(parser);
             }
-            JsonObject * o = peek_ptr(&parser->jsonObjectStack);
-            parser->buffer = pop_ptr(&parser->jsonBufferStack);
-            set_value_bool(o, parser->buffer, true);
+
+            if (peek_int(&parser->jsonDeserializeStack) == Deserialize_JsonObject)
+            {
+                JsonObject *o = peek_ptr(&parser->jsonObjectStack);
+                parser->buffer = pop_ptr(&parser->jsonBufferStack);
+                set_value_bool(o, parser->buffer, true);
+            }
             break;
         }
         case 'f':
@@ -874,9 +898,13 @@ bool parse_JsonValue(_Parser * parser)
                 if (*(parser->input) != _JSON_FALSE_STR[i]) return false;
                 next_token(parser);
             }
-            JsonObject * o = peek_ptr(&parser->jsonObjectStack);
-            parser->buffer = pop_ptr(&parser->jsonBufferStack);
-            set_value_bool(o, parser->buffer, false);
+
+            if (peek_int(&parser->jsonDeserializeStack) == Deserialize_JsonObject)
+            {
+                JsonObject * o = peek_ptr(&parser->jsonObjectStack);
+                parser->buffer = pop_ptr(&parser->jsonBufferStack);
+                set_value_bool(o, parser->buffer, false);
+            }
             break;
         }
         case '0':
@@ -930,9 +958,12 @@ bool parse_JsonNumber(_Parser *parser)
     double val = strtod(start, &end);
     parser->input = end;
 
-    JsonObject * o = peek_ptr(&parser->jsonObjectStack);
-    parser->buffer = pop_ptr(&parser->jsonBufferStack);
-    set_value_float(o, parser->buffer, val);
+    if (peek_int(&parser->jsonDeserializeStack) == Deserialize_JsonObject)
+    {
+        JsonObject *o = peek_ptr(&parser->jsonObjectStack);
+        parser->buffer = pop_ptr(&parser->jsonBufferStack);
+        set_value_float(o, parser->buffer, val);
+    }
 
     if (start == end)
     {
@@ -993,6 +1024,8 @@ bool parse_JsonObject(char* input, JsonObject** parsed)
     parser.jsonParseStack.stacktop = -1;
     parser.jsonObjectStack.stacktop = -1;
     parser.jsonBufferStack.stacktop = -1;
+    parser.jsonDeserializeStack.stacktop = -1;
+    parser.jsonArrayBufferStack.stacktop = -1;
 
     // Skip leading whitespace
     skip_whitespace(&parser);
