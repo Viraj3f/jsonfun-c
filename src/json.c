@@ -672,7 +672,6 @@ typedef struct _Parser
     _Stack jsonObjectStack;
     _Stack jsonBufferStack;
     _Stack jsonDeserializeStack;
-    _Stack jsonArrayBufferStack;
 } _Parser;
 
 void next_token(_Parser* p)
@@ -729,7 +728,7 @@ bool parse_JsonElements(_Parser* parser)
             pop_int(&parser->jsonParseStack);
             pop_int(&parser->jsonDeserializeStack);
             JsonValue * lastElement = parser->arrayBuffer;
-            JsonValue * firstElement = pop_ptr(&parser->jsonArrayBufferStack);
+            JsonValue * firstElement = pop_ptr(&parser->jsonObjectStack);
             JsonArray * array = create_JsonArray(lastElement - firstElement);
             for (int i = lastElement - firstElement - 1; i >= 0; i--)
             {
@@ -1006,7 +1005,7 @@ bool parse_JsonValue(_Parser * parser)
         case '[':
             push_int(&parser->jsonParseStack, Parse_JsonElements);
             push_int(&parser->jsonDeserializeStack, Deserialize_JsonArray);
-            push_ptr(&parser->jsonArrayBufferStack, parser->arrayBuffer);
+            push_ptr(&parser->jsonObjectStack, parser->arrayBuffer);
             next_token(parser);
             break;
         default:
@@ -1134,7 +1133,6 @@ bool parse_JsonObject(char* input, JsonObject** parsed)
     parser.jsonObjectStack.stacktop = -1;
     parser.jsonBufferStack.stacktop = -1;
     parser.jsonDeserializeStack.stacktop = -1;
-    parser.jsonArrayBufferStack.stacktop = -1;
 
     // Skip leading whitespace
     skip_whitespace(&parser);
@@ -1217,7 +1215,6 @@ bool parse_JsonObject(char* input, JsonObject** parsed)
     printf("%d\n", parser.jsonObjectStack.stacktop);
     printf("%d\n", parser.jsonBufferStack.stacktop);
     printf("%d\n", parser.jsonDeserializeStack.stacktop);
-    printf("%d\n", parser.jsonArrayBufferStack.stacktop);
     printf("%li\n", parser.buffer - buffer);
     printf("%li\n", parser.arrayBuffer - arrayBuffer);
     #endif
