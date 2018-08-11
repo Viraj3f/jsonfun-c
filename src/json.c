@@ -18,7 +18,6 @@
 #endif
 #include "json.h"
 
-#define DEBUG_JSON
 #define CONSOLE_RED "\x1B[31m"
 #define CONSOLE_RESET "\x1B[0m"
 
@@ -653,6 +652,7 @@ enum JsonParseTypes
     Parse_JsonValue,
     Parse_Colon,
     Parse_JsonValueSeparator,
+    Parse_JsonElementSeparator,
     Parse_JsonString,
     Parse_JsonNumber,
 };
@@ -720,6 +720,63 @@ bool parse_JsonObjectStart(_Parser* parser)
     next_token(parser);
 }
 
+bool parse_JsonElements(_Parser* parser)
+{
+    skip_whitespace(parser);
+    switch (*(parser->input))
+    {
+        case ']':
+            pop_int(&parser->jsonParseStack);
+            pop_int(&parser->jsonDeserializeStack);
+            JsonValue * lastElement = parser->arrayBuffer;
+            JsonValue * firstElement = pop_ptr(&parser->jsonArrayBufferStack);
+            JsonArray * array = create_JsonArray(lastElement - firstElement);
+            for (int i = lastElement - firstElement - 1; i >= 0; i--)
+            {
+                JsonValue element = firstElement[i];
+                switch (element.type)
+                {
+                    case JSON_STRING:
+                        set_element(array, i, element.data.s, element.type);
+                        // Strings are stored in the parser's buffer, so they need to popped.
+                        parser->buffer = pop_ptr(&parser->jsonBufferStack);
+                        break;
+                    case JSON_OBJECT:
+                        set_element(array, i, element.data.o, element.type);
+                        break;
+                    case JSON_ARRAY:
+                        set_element(array, i, element.data.a, element.type);
+                        break;
+                    default:
+                        set_element(array, i, &element.data, element.type);
+                        break;
+                }
+            }
+            parser->arrayBuffer = firstElement;
+
+            enum JsonDeserializeTypes type = peek_int(&parser->jsonDeserializeStack);
+            if (type == Deserialize_JsonObject)
+            {
+                JsonObject* parent = peek_ptr(&parser->jsonObjectStack);
+                parser->buffer = pop_ptr(&parser->jsonBufferStack);
+                set_value_array(parent, parser->buffer, array);
+            }
+            else if (type == Deserialize_JsonArray)
+            {
+                JsonValue * element = parser->arrayBuffer++;
+                element->type = JSON_ARRAY;
+                element->data.a = array;
+            }
+
+            next_token(parser);
+            return true;
+        default:
+            push_int(&parser->jsonParseStack, Parse_JsonElementSeparator);
+            push_int(&parser->jsonParseStack, Parse_JsonValue);
+            return true;
+    }
+}
+
 bool parse_JsonMembers(_Parser* parser)
 {
     skip_whitespace(parser);
@@ -731,11 +788,18 @@ bool parse_JsonMembers(_Parser* parser)
             if (parser->jsonObjectStack.stacktop > 0)
             {
                 JsonObject* child = pop_ptr(&parser->jsonObjectStack);
-                if (peek_int(&parser->jsonDeserializeStack) == Deserialize_JsonObject)
+                enum JsonDeserializeTypes type = peek_int(&parser->jsonDeserializeStack);
+                if (type == Deserialize_JsonObject)
                 {
                     JsonObject* parent = peek_ptr(&parser->jsonObjectStack);
                     parser->buffer = pop_ptr(&parser->jsonBufferStack);
                     set_value_object(parent, parser->buffer, child);
+                }
+                else if (type == Deserialize_JsonArray)
+                {
+                    JsonValue * element = parser->arrayBuffer++;
+                    element->type = JSON_OBJECT;
+                    element->data.o = child;
                 }
             }
             next_token(parser);
@@ -746,19 +810,6 @@ bool parse_JsonMembers(_Parser* parser)
             push_int(&parser->jsonParseStack, Parse_Colon);
             push_int(&parser->jsonParseStack, Parse_JsonString);
             next_token(parser);
-            return true;
-        default:
-            return false;
-    }
-    next_token(parser);
-}
-
-bool parse_JsonElements(_Parser* parser)
-{
-    skip_whitespace(parser);
-    switch (*(parser->input))
-    {
-        case '}':
             return true;
         default:
             return false;
@@ -858,12 +909,22 @@ bool parse_JsonValue(_Parser * parser)
             push_int(&parser->jsonParseStack, Parse_JsonString);
             parse_JsonString(parser);
 
-            char* value = pop_ptr(&parser->jsonBufferStack);
-            if (peek_int(&parser->jsonDeserializeStack) == Deserialize_JsonObject)
+            enum JsonDeserializeTypes type = peek_int(&parser->jsonDeserializeStack);
+            if (type == Deserialize_JsonObject)
             {
+                char* value = pop_ptr(&parser->jsonBufferStack);
                 parser->buffer = pop_ptr(&parser->jsonBufferStack);
                 JsonObject * o = peek_ptr(&parser->jsonObjectStack);
                 set_value_string(o, parser->buffer, value);
+            }
+            else if (type == Deserialize_JsonArray)
+            {
+                // With arrays, the string is kept in the buffer. They will need to later be
+                // removed when the elemeent is added to the string.
+                char * value = peek_ptr(&parser->jsonBufferStack);
+                JsonValue * element = parser->arrayBuffer++;
+                element->type = JSON_STRING;
+                element->data.s = value;
             }
             break;
         case 'n':
@@ -874,11 +935,18 @@ bool parse_JsonValue(_Parser * parser)
                 next_token(parser);
             }
 
-            if (peek_int(&parser->jsonDeserializeStack) == Deserialize_JsonObject)
+            enum JsonDeserializeTypes type = peek_int(&parser->jsonDeserializeStack);
+            if (type == Deserialize_JsonObject)
             {
                 JsonObject * o = peek_ptr(&parser->jsonObjectStack);
                 parser->buffer = pop_ptr(&parser->jsonBufferStack);
                 set_value_null(o, parser->buffer);
+            }
+            else if (type == Deserialize_JsonArray)
+            {
+                JsonValue *element = parser->arrayBuffer++;
+                element->type = JSON_NULL;
+                element->data.n = NULL;
             }
             break;
         }
@@ -890,11 +958,18 @@ bool parse_JsonValue(_Parser * parser)
                 next_token(parser);
             }
 
-            if (peek_int(&parser->jsonDeserializeStack) == Deserialize_JsonObject)
+            enum JsonDeserializeTypes type = peek_int(&parser->jsonDeserializeStack);
+            if (type == Deserialize_JsonObject)
             {
                 JsonObject *o = peek_ptr(&parser->jsonObjectStack);
                 parser->buffer = pop_ptr(&parser->jsonBufferStack);
                 set_value_bool(o, parser->buffer, true);
+            }
+            else if (type == Deserialize_JsonArray)
+            {
+                JsonValue *element = parser->arrayBuffer++;
+                element->type = JSON_BOOL;
+                element->data.b = true;
             }
             break;
         }
@@ -906,25 +981,23 @@ bool parse_JsonValue(_Parser * parser)
                 next_token(parser);
             }
 
-            if (peek_int(&parser->jsonDeserializeStack) == Deserialize_JsonObject)
+            enum JsonDeserializeTypes type = peek_int(&parser->jsonDeserializeStack);
+            if (type == Deserialize_JsonObject)
             {
                 JsonObject * o = peek_ptr(&parser->jsonObjectStack);
                 parser->buffer = pop_ptr(&parser->jsonBufferStack);
                 set_value_bool(o, parser->buffer, false);
             }
+            else if (type == Deserialize_JsonArray)
+            {
+                JsonValue *element = parser->arrayBuffer++;
+                element->type = JSON_BOOL;
+                element->data.b = false;
+            }
             break;
         }
-        case '0':
-        case '1':
-        case '2':
-        case '3':
-        case '4':
-        case '5':
-        case '6':
-        case '7':
-        case '8':
-        case '9':
-        case '-':
+        case '0': case '1': case '2': case '3': case '4': case '5':
+        case '6': case '7': case '8': case '9': case '-':
             push_int(&parser->jsonParseStack, Parse_JsonNumber);
             break;
         case '{':
@@ -932,6 +1005,9 @@ bool parse_JsonValue(_Parser * parser)
             break;
         case '[':
             push_int(&parser->jsonParseStack, Parse_JsonElements);
+            push_int(&parser->jsonDeserializeStack, Deserialize_JsonArray);
+            push_ptr(&parser->jsonArrayBufferStack, parser->arrayBuffer);
+            next_token(parser);
             break;
         default:
             return false;
@@ -957,6 +1033,23 @@ bool parse_JsonValueSeparator(_Parser* parser)
     }
 }
 
+bool parse_JsonElementSeparator(_Parser* parser)
+{
+    skip_whitespace(parser);
+    switch (*(parser->input))
+    {
+        case ']':
+            pop_int(&parser->jsonParseStack);
+            return true;
+        case ',':
+            next_token(parser);
+            pop_int(&parser->jsonParseStack);
+            return true;
+        default:
+            return false;
+    }
+}
+
 bool parse_JsonNumber(_Parser *parser)
 {
     // Parse the number using strtod
@@ -965,11 +1058,18 @@ bool parse_JsonNumber(_Parser *parser)
     double val = strtod(start, &end);
     parser->input = end;
 
-    if (peek_int(&parser->jsonDeserializeStack) == Deserialize_JsonObject)
+    enum JsonDeserializeTypes type = peek_int(&parser->jsonDeserializeStack);
+    if (type == Deserialize_JsonObject)
     {
         JsonObject *o = peek_ptr(&parser->jsonObjectStack);
         parser->buffer = pop_ptr(&parser->jsonBufferStack);
         set_value_float(o, parser->buffer, val);
+    }
+    else if (type == Deserialize_JsonArray)
+    {
+        JsonValue* element = parser->arrayBuffer++;
+        element->type = JSON_FLOAT;
+        element->data.f = val;
     }
 
     if (start == end)
@@ -1025,9 +1125,11 @@ void print_error(_Parser * parser, char * input)
 bool parse_JsonObject(char* input, JsonObject** parsed)
 {
     char buffer[1024];
+    JsonValue arrayBuffer[1024];
     _Parser parser;
     parser.input = input;
-    parser.buffer = &buffer[0];
+    parser.buffer = buffer;
+    parser.arrayBuffer = arrayBuffer;
     parser.jsonParseStack.stacktop = -1;
     parser.jsonObjectStack.stacktop = -1;
     parser.jsonBufferStack.stacktop = -1;
@@ -1088,8 +1190,15 @@ bool parse_JsonObject(char* input, JsonObject** parsed)
                 break;
             case Parse_JsonElements:
                 #ifdef DEBUG_JSON
-                printf("Parsing value separator\n");
+                printf("Parsing elements\n");
                 #endif
+                success = parse_JsonElements(&parser);
+                break;
+            case Parse_JsonElementSeparator:
+                #ifdef DEBUG_JSON
+                printf("Parsing element separator\n");
+                #endif
+                success = parse_JsonElementSeparator(&parser);
                 break;
         }
 
@@ -1102,6 +1211,16 @@ bool parse_JsonObject(char* input, JsonObject** parsed)
     }
 
     *parsed = pop_ptr(&parser.jsonObjectStack);
+
+    #ifdef DEBUG_JSON
+    printf("%d\n", parser.jsonParseStack.stacktop);
+    printf("%d\n", parser.jsonObjectStack.stacktop);
+    printf("%d\n", parser.jsonBufferStack.stacktop);
+    printf("%d\n", parser.jsonDeserializeStack.stacktop);
+    printf("%d\n", parser.jsonArrayBufferStack.stacktop);
+    printf("%li\n", parser.buffer - buffer);
+    printf("%li\n", parser.arrayBuffer - arrayBuffer);
+    #endif
 
     return true;
 }

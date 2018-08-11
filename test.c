@@ -9,7 +9,7 @@
 
 void test_construction()
 {
-    printf("TESTING CONSTRUCTION--------------------\n");
+    printf("\nTESTING CONSTRUCTION\n");
     // Initial structure:
     // {
     //     "hello": 13,
@@ -93,7 +93,7 @@ void test_construction()
 
 void test_arrays()
 {
-    printf("TESTING ARRAYS--------------------\n");
+    printf("\nTESTING ARRAYS\n");
     // Start off with a simple multi element array:
     // {"hi": [0, 332, true, null, "henlo world"]}
 
@@ -134,7 +134,7 @@ void test_arrays()
 
 void test_nesting()
 {
-    printf("TESTING NESTING--------------------\n");
+    printf("\nTESTING NESTING\n");
     // Nest that array into another array 
     // {
     //   "hi":
@@ -200,7 +200,7 @@ void test_nesting()
 
 void test_printing()
 {
-    printf("TESTING PRINTING--------------------\n");
+    printf("\nTESTING PRINTING\n");
     // Create an object like:
     // {"Hen":null,"Henlo":"Gudbye","10":,"":true,"inner":{"innerinner":{},"false":false}}
     char buffer[256];
@@ -253,14 +253,15 @@ void test_parsing()
 {
     char buffer[256];
 
+    Json_reset_mempool();
     char* input1 = "   {   }  ";
     JsonObject* parsed1;
     parse_JsonObject(input1, &parsed1);
-
     dump_JsonObject(parsed1, buffer);
     printf("%s\n", buffer);
     assert(strcmp(buffer, "{}") == 0);
 
+    Json_reset_mempool();
     char* input2 = "{\"null\": null, \"true\": true, \"false\": false, \"inner\": {\"innerinner\": \"thisisalongstring\"}}";
     JsonObject* parsed2;
     parse_JsonObject(input2, &parsed2);
@@ -269,13 +270,32 @@ void test_parsing()
     char* expected2 = "{\"null\":null,\"true\":true,\"false\":false,\"inner\":{\"innerinner\":\"thisisalongstring\"}}";
     assert(strcmp(buffer, expected2) == 0);
 
-    char* input3 = "{\"a\": 1, \"b\": 32.1e-2,\"c\": -3.012, \"d\": {\"\": -33}}";
+    Json_reset_mempool();
+    char* input3 = "{\"a\": 1, \"b\": 32.1e-2,\"c\": -3.012, \"d\": {\"33\": -33, \"\":{}}}";
     JsonObject* parsed3;
     parse_JsonObject(input3, &parsed3);
     dump_JsonObject(parsed3, buffer);
     printf("%s\n", buffer);
-    char* expected3 = "{\"a\":1,\"b\":0.321,\"c\":-3.012,\"d\":{\"\":-33}}";
+    char* expected3 = "{\"a\":1,\"b\":0.321,\"c\":-3.012,\"d\":{\"33\":-33,\"\":{}}}";
     assert(strcmp(buffer, expected3) == 0);
+
+    Json_reset_mempool();
+    char* input4 = "{\"a\": [], \"b\": [0, true, false, [], \"mystring1\", \"mystring2\", {\"yo\": [\"yothisisastring\", {\"yoinner\": [null]}]}]}";
+    JsonObject* parsed4;
+    parse_JsonObject(input4, &parsed4);
+    dump_JsonObject(parsed4, buffer);
+    printf("%s\n", buffer);
+    char* expected4 = "{\"a\":[],\"b\":[0,true,false,[],\"mystring1\",\"mystring2\",{\"yo\":[\"yothisisastring\",{\"yoinner\":[null]}]}]}";
+    assert(strcmp(buffer, expected4) == 0);
+
+    Json_reset_mempool();
+    char* input5 = "{\"\":[[[[], []], []], [], [], [[[], []]]]}";
+    JsonObject* parsed5;
+    parse_JsonObject(input5, &parsed5);
+    dump_JsonObject(parsed5, buffer);
+    printf("%s\n", buffer);
+    char* expected5 = "{\"\":[[[[],[]],[]],[],[],[[[],[]]]]}";
+    assert(strcmp(buffer, expected5) == 0);
 }
 
 
