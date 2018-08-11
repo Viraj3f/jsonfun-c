@@ -649,6 +649,7 @@ enum JsonParseTypes
 {
     Parse_JsonObjectStart,
     Parse_JsonMembers,
+    Parse_JsonElements,
     Parse_JsonValue,
     Parse_Colon,
     Parse_JsonValueSeparator,
@@ -704,57 +705,63 @@ void skip_whitespace(_Parser* parser)
 bool parse_JsonObjectStart(_Parser* parser)
 {
     skip_whitespace(parser);
-    while (true)
+    switch (*(parser->input))
     {
-        switch (*(parser->input))
-        {
-            case '{':
-                pop_int(&parser->jsonParseStack);
-                push_int(&parser->jsonParseStack, Parse_JsonMembers);
-                push_ptr(&parser->jsonObjectStack, create_JsonObject());
-                push_int(&parser->jsonDeserializeStack, Deserialize_JsonObject);
-                next_token(parser);
-                return true;
-            default:
-                return false;
-        }
-        next_token(parser);
+        case '{':
+            pop_int(&parser->jsonParseStack);
+            push_int(&parser->jsonParseStack, Parse_JsonMembers);
+            push_ptr(&parser->jsonObjectStack, create_JsonObject());
+            push_int(&parser->jsonDeserializeStack, Deserialize_JsonObject);
+            next_token(parser);
+            return true;
+        default:
+            return false;
     }
+    next_token(parser);
 }
 
 bool parse_JsonMembers(_Parser* parser)
 {
     skip_whitespace(parser);
-    while (true)
+    switch (*(parser->input))
     {
-        switch (*(parser->input))
-        {
-            case '}':
-                pop_int(&parser->jsonDeserializeStack);
-                pop_int(&parser->jsonParseStack);
-                if (parser->jsonObjectStack.stacktop > 0)
+        case '}':
+            pop_int(&parser->jsonDeserializeStack);
+            pop_int(&parser->jsonParseStack);
+            if (parser->jsonObjectStack.stacktop > 0)
+            {
+                JsonObject* child = pop_ptr(&parser->jsonObjectStack);
+                if (peek_int(&parser->jsonDeserializeStack) == Deserialize_JsonObject)
                 {
-                    JsonObject* child = pop_ptr(&parser->jsonObjectStack);
-                    if (peek_int(&parser->jsonDeserializeStack) == Deserialize_JsonObject)
-                    {
-                        JsonObject* parent = peek_ptr(&parser->jsonObjectStack);
-                        parser->buffer = pop_ptr(&parser->jsonBufferStack);
-                        set_value_object(parent, parser->buffer, child);
-                    }
+                    JsonObject* parent = peek_ptr(&parser->jsonObjectStack);
+                    parser->buffer = pop_ptr(&parser->jsonBufferStack);
+                    set_value_object(parent, parser->buffer, child);
                 }
-                next_token(parser);
-                return true;
-            case '"':
-                push_int(&parser->jsonParseStack, Parse_JsonValueSeparator);
-                push_int(&parser->jsonParseStack, Parse_JsonValue);
-                push_int(&parser->jsonParseStack, Parse_Colon);
-                push_int(&parser->jsonParseStack, Parse_JsonString);
-                next_token(parser);
-                return true;
-            default:
-                return false;
-        }
-        next_token(parser);
+            }
+            next_token(parser);
+            return true;
+        case '"':
+            push_int(&parser->jsonParseStack, Parse_JsonValueSeparator);
+            push_int(&parser->jsonParseStack, Parse_JsonValue);
+            push_int(&parser->jsonParseStack, Parse_Colon);
+            push_int(&parser->jsonParseStack, Parse_JsonString);
+            next_token(parser);
+            return true;
+        default:
+            return false;
+    }
+    next_token(parser);
+}
+
+bool parse_JsonElements(_Parser* parser)
+{
+    skip_whitespace(parser);
+    switch (*(parser->input))
+    {
+        case '}':
+            return true;
+        default:
+            return false;
     }
 }
 
@@ -923,6 +930,9 @@ bool parse_JsonValue(_Parser * parser)
         case '{':
             push_int(&parser->jsonParseStack, Parse_JsonObjectStart);
             break;
+        case '[':
+            push_int(&parser->jsonParseStack, Parse_JsonElements);
+            break;
         default:
             return false;
     }
@@ -933,20 +943,17 @@ bool parse_JsonValue(_Parser * parser)
 bool parse_JsonValueSeparator(_Parser* parser)
 {
     skip_whitespace(parser);
-    while (true)
+    switch (*(parser->input))
     {
-        switch (*(parser->input))
-        {
-            case '}':
-                pop_int(&parser->jsonParseStack);
-                return true;
-            case ',':
-                next_token(parser);
-                pop_int(&parser->jsonParseStack);
-                return true;
-            default:
-                return false;
-        }
+        case '}':
+            pop_int(&parser->jsonParseStack);
+            return true;
+        case ',':
+            next_token(parser);
+            pop_int(&parser->jsonParseStack);
+            return true;
+        default:
+            return false;
     }
 }
 
@@ -1078,6 +1085,11 @@ bool parse_JsonObject(char* input, JsonObject** parsed)
                 printf("Parsing value separator\n");
                 #endif
                 success = parse_JsonValueSeparator(&parser);
+                break;
+            case Parse_JsonElements:
+                #ifdef DEBUG_JSON
+                printf("Parsing value separator\n");
+                #endif
                 break;
         }
 
