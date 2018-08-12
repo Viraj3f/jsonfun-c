@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <string.h>
 #include <math.h>
+#include <time.h>
 
 #include "lib/json.h"
 
@@ -300,9 +301,11 @@ void test_parsing()
 
 int main()
 {
+    time_t start = time(NULL);
     // Statically allocate 1024kb.
     #define MEMPOOL_SIZE 1024
     char mempool[MEMPOOL_SIZE];
+
     Json_set_mempool(mempool, MEMPOOL_SIZE);
     test_construction();
 
@@ -317,6 +320,9 @@ int main()
 
     Json_reset_mempool();
     test_parsing();
+
+    time_t end = time(NULL);
+    printf("Elapsed %f\n", difftime(end, start));
     
     return 0;
 }

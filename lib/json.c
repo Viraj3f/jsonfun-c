@@ -649,6 +649,17 @@ size_t dump_JsonObject(JsonObject* o, char* destination)
     return end - destination;
 }
 
+typedef struct _Parser
+{
+    char* input;
+    char* buffer;
+    JsonValue* arrayBuffer;
+    _Stack jsonParseStack;
+    _Stack jsonObjectStack;
+    _Stack jsonBufferStack;
+    _Stack jsonDeserializeStack;
+} _Parser;
+
 enum JsonParseTypes
 {
     Parse_JsonObjectStart,
@@ -662,22 +673,34 @@ enum JsonParseTypes
     Parse_JsonNumber,
 };
 
+// Create the jump table for the parser
+bool parse_JsonObjectStart(_Parser *);
+bool parse_JsonMembers(_Parser *);
+bool parse_JsonElements(_Parser *);
+bool parse_JsonValue(_Parser *);
+bool parse_Colon(_Parser *);
+bool parse_JsonValueSeparator(_Parser *);
+bool parse_JsonElementSeparator(_Parser *);
+bool parse_JsonString(_Parser *);
+bool parse_JsonNumber(_Parser *);
+bool (*_parser_jump_table[9])(_Parser*) =
+{
+    &parse_JsonObjectStart,
+    &parse_JsonMembers,
+    &parse_JsonElements,
+    &parse_JsonValue,
+    &parse_Colon,
+    &parse_JsonValueSeparator,
+    &parse_JsonElementSeparator,
+    &parse_JsonString,
+    &parse_JsonNumber,
+};
+
 enum JsonDeserializeTypes
 {
     Deserialize_JsonObject,
     Deserialize_JsonArray,
 };
-
-typedef struct _Parser
-{
-    char* input;
-    char* buffer;
-    JsonValue* arrayBuffer;
-    _Stack jsonParseStack;
-    _Stack jsonObjectStack;
-    _Stack jsonBufferStack;
-    _Stack jsonDeserializeStack;
-} _Parser;
 
 void next_token(_Parser* p)
 {
@@ -708,6 +731,9 @@ void skip_whitespace(_Parser* parser)
 
 bool parse_JsonObjectStart(_Parser* parser)
 {
+    #ifdef DEBUG_JSON
+    printf("Parsing object start\n");
+    #endif
     skip_whitespace(parser);
     switch (*(parser->input))
     {
@@ -726,6 +752,9 @@ bool parse_JsonObjectStart(_Parser* parser)
 
 bool parse_JsonElements(_Parser* parser)
 {
+    #ifdef DEBUG_JSON
+    printf("Parsing elements\n");
+    #endif
     skip_whitespace(parser);
     switch (*(parser->input))
     {
@@ -783,6 +812,9 @@ bool parse_JsonElements(_Parser* parser)
 
 bool parse_JsonMembers(_Parser* parser)
 {
+    #ifdef DEBUG_JSON
+    printf("Parsing members\n");
+    #endif
     skip_whitespace(parser);
     switch (*(parser->input))
     {
@@ -822,10 +854,10 @@ bool parse_JsonMembers(_Parser* parser)
 
 bool parse_EscapedChar(_Parser * parser)
 {
-    next_token(parser);
     #ifdef DEBUG_JSON
     printf("Parsing escaped character\n");
     #endif
+    next_token(parser);
     switch (*(parser->input))
     {
         case '"':
@@ -861,6 +893,9 @@ bool parse_EscapedChar(_Parser * parser)
 
 bool parse_JsonString(_Parser * parser)
 {
+    #ifdef DEBUG_JSON
+    printf("Parsing string\n");
+    #endif
     push_ptr(&parser->jsonBufferStack, parser->buffer);
     while (*(parser->input))
     {
@@ -888,6 +923,9 @@ bool parse_JsonString(_Parser * parser)
 
 bool parse_Colon(_Parser * parser)
 {
+    #ifdef DEBUG_JSON
+    printf("Parsing colon\n");
+    #endif
     skip_whitespace(parser);
     switch (*(parser->input))
     {
@@ -904,6 +942,9 @@ bool parse_Colon(_Parser * parser)
 
 bool parse_JsonValue(_Parser * parser)
 {
+    #ifdef DEBUG_JSON
+    printf("Parsing json value\n");
+    #endif
     skip_whitespace(parser);
     pop_int(&parser->jsonParseStack);
     switch (*(parser->input))
@@ -1024,6 +1065,9 @@ bool parse_JsonValue(_Parser * parser)
 
 bool parse_JsonValueSeparator(_Parser* parser)
 {
+    #ifdef DEBUG_JSON
+    printf("Parsing json value separator\n");
+    #endif
     skip_whitespace(parser);
     switch (*(parser->input))
     {
@@ -1041,6 +1085,9 @@ bool parse_JsonValueSeparator(_Parser* parser)
 
 bool parse_JsonElementSeparator(_Parser* parser)
 {
+    #ifdef DEBUG_JSON
+    printf("Parsing json element separator\n");
+    #endif
     skip_whitespace(parser);
     switch (*(parser->input))
     {
@@ -1058,6 +1105,9 @@ bool parse_JsonElementSeparator(_Parser* parser)
 
 bool parse_JsonNumber(_Parser *parser)
 {
+    #ifdef DEBUG_JSON
+    printf("Parsing json number\n");
+    #endif
     // Parse the number using strtod
     char * start = parser->input;
     char * end = parser->input;
@@ -1135,6 +1185,7 @@ void print_error(_Parser * parser, char * input)
 
 bool parse_JsonObject(char* input, JsonObject** parsed)
 {
+    *parsed = NULL;
     char buffer[1024];
     JsonValue arrayBuffer[1024];
     _Parser parser;
@@ -1153,69 +1204,10 @@ bool parse_JsonObject(char* input, JsonObject** parsed)
     push_int(&parser.jsonParseStack, Parse_JsonObjectStart);
     while (parser.jsonParseStack.stacktop >= 0)
     {
-        bool success = true;
-        switch ((enum JsonParseTypes) peek_int(&parser.jsonParseStack))
-        {
-            case Parse_JsonObjectStart:
-                #ifdef DEBUG_JSON
-                printf("Parsing object\n");
-                #endif
-                success = parse_JsonObjectStart(&parser);
-                break;
-            case Parse_JsonMembers:
-                #ifdef DEBUG_JSON
-                printf("Parsing object members\n");
-                #endif
-                success = parse_JsonMembers(&parser);
-                break;
-            case Parse_Colon:
-                #ifdef DEBUG_JSON
-                printf("Parsing colon\n");
-                #endif
-                success = parse_Colon(&parser);
-                break;
-            case Parse_JsonString:
-                #ifdef DEBUG_JSON
-                printf("Parsing json string\n");
-                #endif
-                success = parse_JsonString(&parser);
-                break;
-            case Parse_JsonNumber:
-                #ifdef DEBUG_JSON
-                printf("Parsing json number\n");
-                #endif
-                success = parse_JsonNumber(&parser);
-                break;
-            case Parse_JsonValue:
-                #ifdef DEBUG_JSON
-                printf("Parsing value\n");
-                #endif
-                success = parse_JsonValue(&parser);
-                break;
-            case Parse_JsonValueSeparator:
-                #ifdef DEBUG_JSON
-                printf("Parsing value separator\n");
-                #endif
-                success = parse_JsonValueSeparator(&parser);
-                break;
-            case Parse_JsonElements:
-                #ifdef DEBUG_JSON
-                printf("Parsing elements\n");
-                #endif
-                success = parse_JsonElements(&parser);
-                break;
-            case Parse_JsonElementSeparator:
-                #ifdef DEBUG_JSON
-                printf("Parsing element separator\n");
-                #endif
-                success = parse_JsonElementSeparator(&parser);
-                break;
-        }
-
+        bool success = _parser_jump_table[peek_int(&parser.jsonParseStack)](&parser);
         if (!success)
         {
             print_error(&parser, input);
-            *parsed = NULL;
             return false;
         }
     }
