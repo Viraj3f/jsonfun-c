@@ -148,3 +148,6 @@ size_t nBytes = dump_JsonObject(obj, buffer); // Number of bytes used not includ
 1. The size of the buffer is limited to 2^16 bytes (~65kB). In the future, it would be possible to keep the size of the buffer to 4.3 gigs, but that would increase the internal size of the object tree (essentially doubling it). This should work for now.
 2. Elements in the mempool are not "freed". For instance, if you call `set_value` on a key that already exists, the old JsonValue will not be removed/replaced from the mempool.
 3. Arrays are of a static size, whose elements have no guarantee of value until they are set. In order to change the size of an array, the only option would be to create a new array, and copy over the old elements to the new. However, ```set_element``` will overwrite a previous value.
+
+## Todo
+- Getting values whose keys aren't in the object doesn't error out as it should.
