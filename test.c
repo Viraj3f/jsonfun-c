@@ -4,7 +4,7 @@
 #include <string.h>
 #include <math.h>
 
-#include "src/json.h"
+#include "lib/json.h"
 
 
 void test_construction()

@@ -1118,7 +1118,12 @@ void print_error(_Parser * parser, char * input)
 
     if (*(parser->input))
     {
-        printf(CONSOLE_RED "Invalid token found at position %li: '%c'\n" CONSOLE_RESET, parser->input - input, *(parser->input));
+        char bad_char = *(parser->input);
+        printf(
+            CONSOLE_RED "Invalid token found at position %li: '%c' (%d)\n" CONSOLE_RESET,
+            parser->input - input,
+            bad_char, 
+            (int)bad_char);
     }
     else
     {

@@ -1,10 +1,15 @@
 CC=clang
 CFLAGS=-W -Wall -Wextra -pedantic -std=c11
-FILES=test.c src/json.c
-SRC_DIR=src/
+JSON_FILES=lib/json.c
+LIB_DIR=lib/
 
-all:
-	$(CC) -I $(SRC_DIR) $(FILES) -o test.out $(CFLAGS)
+all: sample testing
+
+sample:
+	$(CC) -I $(LIB_DIR) $(JSON_FILES) samples.c -o bin/sample.out $(CFLAGS)
+
+testing:
+	$(CC) -I $(LIB_DIR) $(JSON_FILES) test.c -o bin/test.out $(CFLAGS)
 
 debug:
-	$(CC) -g -I $(SRC_DIR) $(FILES) -o debug.out $(CFLAGS)
+	$(CC) -g -I $(LIB_DIR) $(JSON_FILES) test.c -o bin/debug.out $(CFLAGS)
