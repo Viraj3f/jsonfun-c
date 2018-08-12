@@ -389,83 +389,59 @@ int peek_int(_Stack* s)
     return rval;
 }
 
+typedef struct _Dumper
+{
+    _Stack valstack;
+    _Stack bufend_stack;
+    _Stack objIndex_stack;
+    char * destination;
+    char * key_buffer;
+} _Dumper;
+
 char _JSON_NULL_STR[] = "null";
 char _JSON_FALSE_STR[] = "false";
 char _JSON_TRUE_STR[] = "true";
 
-char* _dump_JsonObject_Key(char* buffer, int bufStart, int bufEnd, char* destination)
+char* _dump_JsonObject_Key(_Dumper * dumper, int bufStart, int bufEnd)
 {
-    *(destination++) = '"'; 
+    *(dumper->destination++) = '"'; 
     for (int i = bufStart; i <= bufEnd; i++)
     {
-        *(destination++) = buffer[i];
+        *(dumper->destination++) = dumper->key_buffer[i];
     }
-    *(destination++) = '"'; 
-    *(destination++) = ':'; 
+    *(dumper->destination++) = '"'; 
+    *(dumper->destination++) = ':'; 
 
-    return destination;
+    return dumper->destination;
 }
 
-char*
-_dump_JsonObject(
-    JsonObject *o,
-    char* destination,
-    _Stack* valstack,
-    _Stack* bufend_stack,
-    _Stack* objIndex_stack,
-    char* key_buffer);
+char* _dump_JsonObject(JsonObject *o, _Dumper* dumper);
 
-char * 
-_dump_JsonValue(
-    JsonValue* value, 
-    char * destination,
-    _Stack* valstack,
-    _Stack* bufend_stack,
-    _Stack* objIndex_stack,
-    char* key_buffer);
+char* _dump_JsonValue(JsonValue *value, _Dumper* dumper);
 
-char*
-_dump_JsonArray(
-    JsonArray *ary,
-    char* destination,
-    _Stack* valstack,
-    _Stack* bufend_stack,
-    _Stack* objIndex_stack,
-    char* key_buffer)
+char* _dump_JsonArray(JsonArray *ary, _Dumper* dumper)
 {
-    *(destination++) = '[';
+    *(dumper->destination++) = '[';
     for (int i = 0; i < ary->length; i++)
     {
         if (i > 0)
         {
-            *(destination++) = ',';
+            *(dumper->destination++) = ',';
         }
 
         JsonValue* element = &((JsonValue*)(buffer.start + ary->elements))[i];
         switch (element->type)
         {
             case JSON_OBJECT:
-                destination = _dump_JsonObject(
-                    element->data.o, 
-                    destination, 
-                    valstack, 
-                    bufend_stack,
-                    objIndex_stack,
-                    key_buffer);
+                dumper->destination = _dump_JsonObject(element->data.o, dumper);
                 break;
             default:
-                destination = _dump_JsonValue(
-                    element,
-                    destination, 
-                    valstack, 
-                    bufend_stack,
-                    objIndex_stack,
-                    key_buffer);
+                dumper->destination = _dump_JsonValue(element, dumper);
                 break;
         }
     }
-    *(destination++) = ']';
-    return destination;
+    *(dumper->destination++) = ']';
+    return dumper->destination;
 }
 
 void strcpyescaped(char * source, char * destination)
@@ -510,140 +486,122 @@ void strcpyescaped(char * source, char * destination)
     }
 }
 
-char * 
-_dump_JsonValue(
-    JsonValue* value, 
-    char * destination,
-    _Stack* valstack,
-    _Stack* bufend_stack,
-    _Stack* objIndex_stack,
-    char* key_buffer)
+char * _dump_JsonValue(JsonValue* value, _Dumper* dumper)
 {
     switch (value->type)
     {
         char *str;
         case JSON_NULL:
             str = _JSON_NULL_STR;
-            while (*str) *(destination++) = *(str++);
+            while (*str) *(dumper->destination++) = *(str++);
             break;
         case JSON_STRING:
             str = value->data.s;
-            *(destination++) = '"';
-            while (*str) *(destination++) = *(str++);
-            *(destination++) = '"';
+            *(dumper->destination++) = '"';
+            while (*str) *(dumper->destination++) = *(str++);
+            *(dumper->destination++) = '"';
             break;
         case JSON_BOOL:
             str = value->data.b ? _JSON_TRUE_STR : _JSON_FALSE_STR;
-            while (*str) *(destination++) = *(str++);
+            while (*str) *(dumper->destination++) = *(str++);
             break;
         case JSON_FLOAT:
         {
-            int len = sprintf(destination, "%g", value->data.f);
-            destination += len;
+            int len = sprintf(dumper->destination, "%g", value->data.f);
+            dumper->destination += len;
             break;
         }
         case JSON_OBJECT:
-            push_int(objIndex_stack, valstack->stacktop);
-            push_ptr(valstack, &(value->data.o->node));
-            push_int(bufend_stack, 0);
-            *(destination++) = '{';
+            push_int(&dumper->objIndex_stack, dumper->valstack.stacktop);
+            push_ptr(&dumper->valstack, &(value->data.o->node));
+            push_int(&dumper->bufend_stack, 0);
+            *(dumper->destination++) = '{';
             break;
         case JSON_ARRAY:
         {
-            destination = _dump_JsonArray(
-                value->data.a, 
-                destination, 
-                valstack, 
-                bufend_stack,
-                objIndex_stack,
-                key_buffer);
+            dumper->destination = _dump_JsonArray(value->data.a, dumper);
             break;
         }
         default:
             break;
     }
-    return destination;
+    return dumper->destination;
 }
 
 char*
-_dump_JsonObject(
-    JsonObject *o,
-    char* destination,
-    _Stack* valstack,
-    _Stack* bufend_stack,
-    _Stack* objIndex_stack,
-    char* key_buffer)
+_dump_JsonObject(JsonObject *o, _Dumper * dumper)
 {
-    push_int(objIndex_stack, valstack->stacktop);
-    push_ptr(valstack, &(o->node));
-    push_int(bufend_stack, 0);
+    push_int(&dumper->objIndex_stack, dumper->valstack.stacktop);
+    push_ptr(&dumper->valstack, &(o->node));
+    push_int(&dumper->bufend_stack, 0);
 
-    int intial_valstack_top = valstack->stacktop;
-    int intial_objIndex_stack_top = objIndex_stack->stacktop;
+    int intial_valstack_top = dumper->valstack.stacktop;
+    int intial_objIndex_stack_top = dumper->objIndex_stack.stacktop;
 
-    *(destination++) = '{';
-    while (valstack->stacktop >= intial_valstack_top)
+    *(dumper->destination++) = '{';
+    while (dumper->valstack.stacktop >= intial_valstack_top)
     {
-        JsonNode* node = pop_ptr(valstack);
-        int strIndex  = pop_int(bufend_stack);  // This will update strIndex
-        key_buffer[strIndex] = node->letter;  // Add the current key to the buffer
+        JsonNode* node = pop_ptr(&dumper->valstack);
+        int strIndex  = pop_int(&dumper->bufend_stack);  // This will update strIndex
+        dumper->key_buffer[strIndex] = node->letter;  // Add the current key to the buffer
 
         // Add sibling to stack if exists
         if (node->sibling != DEFAULT_OBJECT_ADDRESS)
         {
             JsonNode* sibling = (JsonNode*)(buffer.start + node->sibling); 
-            push_ptr(valstack, sibling);
-            push_int(bufend_stack, strIndex);
+            push_ptr(&dumper->valstack, sibling);
+            push_int(&dumper->bufend_stack, strIndex);
         }
 
         // Add child to stack if exists
         if (node->child != DEFAULT_OBJECT_ADDRESS)
         {
             JsonNode* child = (JsonNode*)(buffer.start + node->child); 
-            push_ptr(valstack, child);
-            push_int(bufend_stack, strIndex + 1);
+            push_ptr(&dumper->valstack, child);
+            push_int(&dumper->bufend_stack, strIndex + 1);
         }
 
         // Print current node if it's not empty
         if (node->data != DEFAULT_OBJECT_ADDRESS)
         {
-            if (*(destination - 1) != '{')
+            if (*(dumper->destination - 1) != '{')
             {
-                *(destination++) = ',';
+                *(dumper->destination++) = ',';
             }
 
-            destination = _dump_JsonObject_Key(key_buffer, 0, strIndex - 1, destination);
+            dumper->destination = _dump_JsonObject_Key(dumper, 0, strIndex - 1 );
             JsonValue* value = (JsonValue*)(buffer.start + node->data);
-            destination = _dump_JsonValue(value, destination, valstack, bufend_stack, objIndex_stack, key_buffer);
+            dumper->destination = _dump_JsonValue(value, dumper);
         }
 
-        if (valstack->stacktop == peek_int(objIndex_stack))
+        if (dumper->valstack.stacktop == peek_int(&dumper->objIndex_stack))
         {
-            *(destination++) = '}';
-            pop_int(objIndex_stack);
+            *(dumper->destination++) = '}';
+            pop_int(&dumper->objIndex_stack);
         }
     }
 
     // Check this at the end, since nested objects will not check for the '}'
-    while (objIndex_stack->stacktop >= intial_objIndex_stack_top)
+    while (dumper->objIndex_stack.stacktop >= intial_objIndex_stack_top)
     {
-        *(destination++) = '}';
-        pop_int(objIndex_stack);
+        *(dumper->destination++) = '}';
+        pop_int(&dumper->objIndex_stack);
     }
 
-    return destination;
+    return dumper->destination;
 }
 
 size_t dump_JsonObject(JsonObject* o, char* destination)
 {
     char key_buffer[256];
-    _Stack valstack, bufend_stack, objIndex_stack;
-    valstack.stacktop = -1;
-    bufend_stack.stacktop = -1;
-    objIndex_stack.stacktop = -1;
+    _Dumper dumper;
+    dumper.key_buffer = key_buffer;
+    dumper.destination = destination;
+    dumper.valstack.stacktop = -1;
+    dumper.bufend_stack.stacktop = -1;
+    dumper.objIndex_stack.stacktop = -1;
 
-    char* end = 
-        _dump_JsonObject(o, destination, &valstack, &bufend_stack, &objIndex_stack, key_buffer);
+    char* end = _dump_JsonObject(o, &dumper);
     *end = '\0';
     
     return end - destination;
