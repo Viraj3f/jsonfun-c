@@ -763,7 +763,7 @@ bool parse_JsonElements(_Parser* parser)
             {
                 JsonObject* parent = peek_ptr(&parser->jsonObjectStack);
                 parser->buffer = pop_ptr(&parser->jsonBufferStack);
-                set_value_array(parent, parser->buffer, array);
+                _set_value(parent, parser->buffer, array, JSON_ARRAY);
             }
             else if (type == Deserialize_JsonArray)
             {
@@ -797,7 +797,7 @@ bool parse_JsonMembers(_Parser* parser)
                 {
                     JsonObject* parent = peek_ptr(&parser->jsonObjectStack);
                     parser->buffer = pop_ptr(&parser->jsonBufferStack);
-                    set_value_object(parent, parser->buffer, child);
+                    _set_value(parent, parser->buffer, child, JSON_OBJECT);
                 }
                 else if (type == Deserialize_JsonArray)
                 {
@@ -919,7 +919,7 @@ bool parse_JsonValue(_Parser * parser)
                 char* value = pop_ptr(&parser->jsonBufferStack);
                 parser->buffer = pop_ptr(&parser->jsonBufferStack);
                 JsonObject * o = peek_ptr(&parser->jsonObjectStack);
-                set_value_string(o, parser->buffer, value);
+                _set_value(o, parser->buffer, value, JSON_STRING);
             }
             else if (type == Deserialize_JsonArray)
             {
@@ -944,7 +944,7 @@ bool parse_JsonValue(_Parser * parser)
             {
                 JsonObject * o = peek_ptr(&parser->jsonObjectStack);
                 parser->buffer = pop_ptr(&parser->jsonBufferStack);
-                set_value_null(o, parser->buffer);
+                _set_value(o, parser->buffer, NULL, JSON_NULL);
             }
             else if (type == Deserialize_JsonArray)
             {
@@ -967,7 +967,8 @@ bool parse_JsonValue(_Parser * parser)
             {
                 JsonObject *o = peek_ptr(&parser->jsonObjectStack);
                 parser->buffer = pop_ptr(&parser->jsonBufferStack);
-                set_value_bool(o, parser->buffer, true);
+                bool temp = true;
+                _set_value(o, parser->buffer, &temp, JSON_BOOL);
             }
             else if (type == Deserialize_JsonArray)
             {
@@ -990,7 +991,8 @@ bool parse_JsonValue(_Parser * parser)
             {
                 JsonObject * o = peek_ptr(&parser->jsonObjectStack);
                 parser->buffer = pop_ptr(&parser->jsonBufferStack);
-                set_value_bool(o, parser->buffer, false);
+                bool temp = false;
+                _set_value(o, parser->buffer, &temp, JSON_BOOL);
             }
             else if (type == Deserialize_JsonArray)
             {
@@ -1059,7 +1061,7 @@ bool parse_JsonNumber(_Parser *parser)
     // Parse the number using strtod
     char * start = parser->input;
     char * end = parser->input;
-    double val = strtod(start, &end);
+    float val = strtod(start, &end);
     parser->input = end;
 
     enum JsonDeserializeTypes type = peek_int(&parser->jsonDeserializeStack);
@@ -1067,7 +1069,7 @@ bool parse_JsonNumber(_Parser *parser)
     {
         JsonObject *o = peek_ptr(&parser->jsonObjectStack);
         parser->buffer = pop_ptr(&parser->jsonBufferStack);
-        set_value_float(o, parser->buffer, val);
+        _set_value(o, parser->buffer, &val, JSON_FLOAT);
     }
     else if (type == Deserialize_JsonArray)
     {
