@@ -18,7 +18,6 @@ typedef enum
     JSON_NULL,
     JSON_STRING,
     JSON_BOOL,
-    JSON_INT,
     JSON_FLOAT,
     JSON_OBJECT,
     JSON_ARRAY,
@@ -32,7 +31,6 @@ typedef enum
     INDEX_OUT_OF_BOUNDS = -3
 } JsonError;
 
-
 typedef struct JsonValue
 {
     JsonDataType type;
@@ -41,7 +39,6 @@ typedef struct JsonValue
         void * n;
         char* s;
         bool b;
-        int i;
         float f;
         struct JsonObject* o;
         struct JsonArray * a;
@@ -76,24 +73,26 @@ void Json_reset_mempool();
 // Functions for creating json objects
 JsonObject* create_JsonObject(void);
 JsonValue get_value(JsonObject * obj, char * key);
-
 bool set_value_null(JsonObject * obj, char * key);
 bool set_value_string(JsonObject * obj, char * key, char * str);
 bool set_value_bool(JsonObject * obj, char * key, bool data);
-bool set_value_int(JsonObject * obj, char * key, int data);
 bool set_value_float(JsonObject * obj, char * key, float data);
 bool set_value_object(JsonObject * obj, char * key, JsonObject * object);
 bool set_value_array(JsonObject * obj, char * key, JsonArray * array);
-bool set_value(JsonObject * obj, char * key, void* data, JsonDataType type);
 
 // Function for creating json arrays
 JsonArray * create_JsonArray(int16_t length);
-int set_element(JsonArray * j, int16_t index, void * data, JsonDataType type);
 JsonValue get_element(JsonArray * j, int16_t index);
+bool set_element_null(JsonArray * j, int16_t index);
+bool set_element_string(JsonArray * j, int16_t index, char * str);
+bool set_element_bool(JsonArray * j, int16_t index, bool data);
+bool set_element_float(JsonArray * j, int16_t index, float data);
+bool set_element_object(JsonArray * j, int16_t index, JsonObject * object);
+bool set_element_array(JsonArray * j, int16_t index, JsonArray * array);
 
-size_t dump_JsonObject(JsonObject *o, char* destination);
-
+// For dumping and parsing
 bool parse_JsonObject(char* input, JsonObject** parsed);
+size_t dump_JsonObject(JsonObject *o, char* destination);
 
 #endif
 

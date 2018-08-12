@@ -147,9 +147,6 @@ int _alloc_JsonElement(JsonValue * jd, void * data)
         case JSON_BOOL:
             jd->data.b = *((bool *) data);
             break;
-        case JSON_INT:
-            jd->data.i = *((int *) data);
-            break;
         case JSON_FLOAT:
             jd->data.f = *((float *) data);
             break;
@@ -168,10 +165,18 @@ int _alloc_JsonElement(JsonValue * jd, void * data)
     return 0;
 }
 
-int _set_value(JsonObject * obj, char * key, JsonValue* value)
+bool _set_value(JsonObject * obj, char * key, void* data, JsonDataType type)
 {
-    JsonNode * node = &(obj->node);
+    JsonValue* value = _json_alloc(sizeof(JsonValue), alignof(JsonValue));
+    value->type = type;
 
+    int status = _alloc_JsonElement(value, data);
+    if (status < 0)
+    {
+        return false;
+    }
+
+    JsonNode * node = &(obj->node);
     // Check if the JSON node is set to its default values. If that is the case,
     // we can save an extra allocation by chaning the default value's key rather
     // than by creating a sibling.
@@ -228,59 +233,37 @@ int _set_value(JsonObject * obj, char * key, JsonValue* value)
     }
 
     node->data = ((int8_t *) value - buffer.start);
-
-    return 0;
+    return true;
 }
 
 bool set_value_null(JsonObject * obj, char * key)
 {
-    return set_value(obj, key, NULL, JSON_NULL);
+    return _set_value(obj, key, NULL, JSON_NULL);
 }
 
 bool set_value_string(JsonObject * obj, char * key, char * str)
 {
-    return set_value(obj, key, str, JSON_STRING);
+    return _set_value(obj, key, str, JSON_STRING);
 }
 
 bool set_value_bool(JsonObject * obj, char * key, bool data)
 {
-    return set_value(obj, key, &data, JSON_BOOL);
-}
-
-bool set_value_int(JsonObject * obj, char * key, int data)
-{
-    return set_value(obj, key, &data, JSON_INT);
+    return _set_value(obj, key, &data, JSON_BOOL);
 }
 
 bool set_value_float(JsonObject * obj, char * key, float data)
 {
-    return set_value(obj, key, &data, JSON_FLOAT);
+    return _set_value(obj, key, &data, JSON_FLOAT);
 }
 
 bool set_value_object(JsonObject * obj, char * key, JsonObject * object)
 {
-    return set_value(obj, key, object, JSON_OBJECT);
+    return _set_value(obj, key, object, JSON_OBJECT);
 }
 
 bool set_value_array(JsonObject * obj, char * key, JsonArray * array)
 {
-    return set_value(obj, key, array, JSON_ARRAY);
-}
-
-bool set_value(JsonObject * obj, char * key, void* data, JsonDataType type)
-{
-    JsonValue* jd = _json_alloc(sizeof(JsonValue), alignof(JsonValue));
-    jd->type = type;
-
-    int status = _alloc_JsonElement(jd, data);
-
-    if (status < 0)
-    {
-        return false;
-    }
-
-    _set_value(obj, key, jd);
-    return true;
+    return _set_value(obj, key, array, JSON_ARRAY);
 }
 
 JsonArray * create_JsonArray(int16_t length)
@@ -293,13 +276,42 @@ JsonArray * create_JsonArray(int16_t length)
     return j;
 }
 
-int set_element(JsonArray * j, int16_t index, void * data, JsonDataType type)
+int _set_element(JsonArray * j, int16_t index, void * data, JsonDataType type)
 {
     JsonValue *jd = &(((JsonValue*)(buffer.start + j->elements))[index]);
     jd->type = type;
     int status = _alloc_JsonElement(jd, data);
-
     return status;
+}
+
+bool set_element_null(JsonArray * j, int16_t index)
+{
+    return _set_element(j, index, NULL, JSON_NULL);
+}
+
+bool set_element_string(JsonArray * j, int16_t index, char * str)
+{
+    return _set_element(j, index, str, JSON_STRING);
+}
+
+bool set_element_bool(JsonArray * j, int16_t index, bool data)
+{
+    return _set_element(j, index, &data, JSON_BOOL);
+}
+
+bool set_element_float(JsonArray * j, int16_t index, float data)
+{
+    return _set_element(j, index, &data, JSON_FLOAT);
+}
+
+bool set_element_object(JsonArray * j, int16_t index, JsonObject * object)
+{
+    return _set_element(j, index, object, JSON_OBJECT);
+}
+
+bool set_element_array(JsonArray * j, int16_t index, JsonArray * array)
+{
+    return _set_element(j, index, array, JSON_ARRAY);
 }
 
 JsonValue get_element(JsonArray * j, int16_t index)
@@ -315,7 +327,6 @@ JsonValue get_element(JsonArray * j, int16_t index)
 }
 
 #define JSON_STACK_LENGTH 128
-
 typedef struct _Stack
 {
     void* stack[JSON_STACK_LENGTH];
@@ -525,12 +536,6 @@ _dump_JsonValue(
             str = value->data.b ? _JSON_TRUE_STR : _JSON_FALSE_STR;
             while (*str) *(destination++) = *(str++);
             break;
-        case JSON_INT:
-        {
-            int len = sprintf(destination, "%d", value->data.i);
-            destination += len;
-            break;
-        }
         case JSON_FLOAT:
         {
             int len = sprintf(destination, "%g", value->data.f);
@@ -736,18 +741,18 @@ bool parse_JsonElements(_Parser* parser)
                 switch (element.type)
                 {
                     case JSON_STRING:
-                        set_element(array, i, element.data.s, element.type);
+                        _set_element(array, i, element.data.s, element.type);
                         // Strings are stored in the parser's buffer, so they need to popped.
                         parser->buffer = pop_ptr(&parser->jsonBufferStack);
                         break;
                     case JSON_OBJECT:
-                        set_element(array, i, element.data.o, element.type);
+                        _set_element(array, i, element.data.o, element.type);
                         break;
                     case JSON_ARRAY:
-                        set_element(array, i, element.data.a, element.type);
+                        _set_element(array, i, element.data.a, element.type);
                         break;
                     default:
-                        set_element(array, i, &element.data, element.type);
+                        _set_element(array, i, &element.data, element.type);
                         break;
                 }
             }

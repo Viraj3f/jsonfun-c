@@ -20,20 +20,20 @@ void test_construction()
     char buffer[256];
     JsonObject* j = create_JsonObject();
 
-    int a1 = 13;
-    int a2 = 14;
+    float a1 = 13;
+    float a2 = 14;
     float f1 = 13.1;
     bool b1 = false;
-    set_value(j, "hello", &a1, JSON_INT);
-    set_value(j, "hella", &a2, JSON_INT);
-    set_value(j, "", &f1, JSON_FLOAT);
-    set_value(j, "good bye", NULL, JSON_NULL);
+    set_value_float(j, "hello", a1);
+    set_value_float(j, "hella", a2);
+    set_value_float(j, "", f1);
+    set_value_null(j, "good bye");
 
     JsonValue jd = get_value(j, "hello");
-    assert(jd.data.i == a1);
+    assert(jd.data.f == a1);
 
     jd = get_value(j, "hella");
-    assert(jd.data.i == a2);
+    assert(jd.data.f == a2);
 
     jd = get_value(j, "");
     assert(jd.data.f == f1);
@@ -41,7 +41,7 @@ void test_construction()
     jd = get_value(j, "good bye");
     assert(jd.data.n == NULL);
 
-    set_value(j, "good bye", &b1, JSON_BOOL);
+    set_value_bool(j, "good bye", b1);
     jd = get_value(j, "good bye");
     assert(jd.data.b == b1);
 
@@ -60,9 +60,8 @@ void test_construction()
     // }
     JsonObject* j2 = create_JsonObject();
     b1 = true;
-    set_value(j2, "good bye", &b1, JSON_BOOL);
-
-    set_value(j, "good bye", j2, JSON_OBJECT);
+    set_value_bool(j2, "good bye", b1);
+    set_value_object(j, "good bye", j2);
 
     jd = get_value(j, "good bye");
     assert(jd.data.o == j2);
@@ -83,7 +82,7 @@ void test_construction()
     jd = get_value(jd.data.o, "good bye");
     assert(jd.data.b == b1);
 
-    set_value(j, "good", "wurd", JSON_STRING);
+    set_value_string(j, "good", "wurd");
     jd = get_value(j, "good");
     assert(strcmp(jd.data.s, "wurd") == 0);
 
@@ -100,23 +99,23 @@ void test_arrays()
     JsonObject * o = create_JsonObject();
 
     JsonArray * array = create_JsonArray(5);
-    int i1 = 0, i2 = 332;
-    bool b1 = true; void* p = NULL;
-    set_element(array, 0, &i1, JSON_INT);
-    set_element(array, 1, &i2, JSON_INT);
-    set_element(array, 2, &b1, JSON_BOOL);
-    set_element(array, 3, p, JSON_NULL);
-    set_element(array, 4, "henlo world", JSON_STRING);
+    float i1 = 0, i2 = 332;
+    bool b1 = true;
+    set_element_float(array, 0, i1);
+    set_element_float(array, 1, i2);
+    set_element_bool(array, 2, b1);
+    set_element_null(array, 3);
+    set_element_string(array, 4, "henlo world");
 
-    set_value(o, "hi", array, JSON_ARRAY);
+    set_value_array(o, "hi", array);
 
     // test if array values are correct.
     array = get_value(o, "hi").data.a;
     JsonValue jd = get_element(array, 0);
-    assert(jd.data.i == 0);
+    assert(jd.data.f == 0);
 
     jd = get_element(array, 1);
-    assert(jd.data.i == 332);
+    assert(jd.data.f == 332);
 
     jd = get_element(array, 2);
     assert(jd.data.b == true);
@@ -145,37 +144,37 @@ void test_nesting()
     // }
     JsonArray * arrayInner = create_JsonArray(5);
 
-    int i1 = 0, i2 = 332;
-    bool b1 = true; void* p = NULL;
-    set_element(arrayInner, 0, &i1, JSON_INT);
-    set_element(arrayInner, 1, &i2, JSON_INT);
-    set_element(arrayInner, 2, &b1, JSON_BOOL);
-    set_element(arrayInner, 3, p, JSON_NULL);
-    set_element(arrayInner, 4, "henlo world", JSON_STRING);
+    float i1 = 0, i2 = 332;
+    bool b1 = true;
+    set_element_float(arrayInner, 0, i1);
+    set_element_float(arrayInner, 1, i2);
+    set_element_bool(arrayInner, 2, b1);
+    set_element_null(arrayInner, 3);
+    set_element_string(arrayInner, 4, "henlo world");
 
     JsonArray * piArray = create_JsonArray(1);
     float f1 = 3.14;
-    set_element(piArray, 0, &f1, JSON_FLOAT);
+    set_element_float(piArray, 0, f1);
 
     JsonObject * piObj = create_JsonObject();
-    set_value(piObj, "pi", piArray, JSON_ARRAY);
+    set_value_array(piObj, "pi", piArray);
 
     JsonArray * arrayOuter = create_JsonArray(2);
-    set_element(arrayOuter, 0, arrayInner, JSON_ARRAY);
-    set_element(arrayOuter, 1, piObj, JSON_OBJECT);
+    set_element_array(arrayOuter, 0, arrayInner);
+    set_element_object(arrayOuter, 1, piObj);
 
     JsonObject* o = create_JsonObject();
-    set_value(o, "hi", arrayOuter, JSON_ARRAY);
+    set_value_array(o, "hi", arrayOuter);
 
     arrayOuter = get_value(o, "hi").data.a;
     JsonArray * array = get_element(arrayOuter, 0).data.a;
 
     // Test for first element in array
     JsonValue jd = get_element(array, 0);
-    assert(jd.data.i == 0);
+    assert(jd.data.f == 0);
 
     jd = get_element(array, 1);
-    assert(jd.data.i == 332);
+    assert(jd.data.f == 332);
 
     jd = get_element(array, 2);
     assert(jd.data.b == true);
@@ -208,24 +207,24 @@ void test_printing()
     dump_JsonObject(o, buffer);
     printf("%s\n", buffer);
 
-    int i = 10;
+    float i = 10;
     bool b = true;
     float f = 3.12;
     float f4 = 5.44;
-    set_value(o, "Henlo", "Gudbye", JSON_STRING);
-    set_value(o, "10", &i, JSON_INT);
-    set_value(o, "Hen", NULL, JSON_NULL);
-    set_value(o, "", &b, JSON_BOOL);
-    set_value(o, "f", &f, JSON_FLOAT);
+    set_value_string(o, "Henlo", "Gudbye");
+    set_value_float(o, "10", i);
+    set_value_null(o, "Hen");
+    set_value_bool(o, "", b);
+    set_value_float(o, "f", f);
 
     JsonObject* inner = create_JsonObject();
 
     JsonObject* innerinner = create_JsonObject();
-    set_value(inner, "innerinner", innerinner, JSON_OBJECT);
+    set_value_object(inner, "innerinner", innerinner);
     set_value_bool(inner, "false", false);
 
-    set_value(o, "inz", &f4, JSON_FLOAT);
-    set_value(o, "inner", inner, JSON_OBJECT);
+    set_value_float(o, "inz", f4);
+    set_value_object(o, "inner", inner);
 
     dump_JsonObject(o, buffer);
     printf("%s\n", buffer);
@@ -239,9 +238,9 @@ void test_printing()
     JsonObject* ii = create_JsonObject();
     JsonObject* in = create_JsonObject();
 
-    set_value(iii, "iii", iiii, JSON_OBJECT);
-    set_value(ii, "ii", iii, JSON_OBJECT);
-    set_value(in, "i", ii, JSON_OBJECT);
+    set_value_object(iii, "iii", iiii);
+    set_value_object(ii, "ii", iii);
+    set_value_object(in, "i", ii);
 
     dump_JsonObject(in, buffer);
     printf("%s\n", buffer);
