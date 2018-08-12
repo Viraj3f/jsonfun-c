@@ -23,9 +23,9 @@
 
 typedef struct Mempool
 {
-    int8_t * start;
-    int8_t * end;
-    int8_t * top;
+    u_int8_t * start;
+    u_int8_t * end;
+    u_int8_t * top;
 } Mempool;
 
 Mempool buffer = { .end=NULL, .top=NULL };
@@ -81,7 +81,7 @@ void * _json_alloc(size_t size, size_t alignment)
 }
 
 const unsigned char DEFAULT_LETTER = 0x80;
-const u_int16_t DEFAULT_OBJECT_ADDRESS = 0;
+const u_int16_t DEFAULT_OBJECT_ADDRESS = 0xFFFF;
 void _set_default_JsonNode(JsonNode* node)
 {
     // 1000 0000
@@ -113,6 +113,14 @@ JsonValue get_value(JsonObject * obj, char * key)
         while (*key != node->letter)
         {
             node = (JsonNode*)(buffer.start + node->sibling);
+
+            if ((u_int8_t *) node - buffer.start == DEFAULT_OBJECT_ADDRESS)
+            {
+                return (JsonValue) {
+                    .type=JSON_ERROR, 
+                    .data.e=MISSING_KEY
+                };
+            }
         }
     }
 
@@ -121,13 +129,37 @@ JsonValue get_value(JsonObject * obj, char * key)
         while (*key != node->letter)
         {
             node = (JsonNode*)(buffer.start + node->sibling);
+            if ((u_int8_t *) node - buffer.start == DEFAULT_OBJECT_ADDRESS)
+            {
+                return (JsonValue) {
+                    .type=JSON_ERROR, 
+                    .data.e=MISSING_KEY
+                };
+            }
         }
 
         node = (JsonNode*)(buffer.start + node->child);
+        if ((u_int8_t *) node - buffer.start == DEFAULT_OBJECT_ADDRESS)
+        {
+            return (JsonValue) {
+                .type=JSON_ERROR, 
+                .data.e=MISSING_KEY
+            };
+        }
         key++;
     }
 
-    return *((JsonValue*)(buffer.start + node->data));
+    if (node->data != DEFAULT_OBJECT_ADDRESS)
+    {
+        return *((JsonValue*)(buffer.start + node->data));
+    }
+    else
+    {
+        return (JsonValue) {
+            .type=JSON_ERROR, 
+            .data.e=MISSING_KEY
+        };
+    }
 }
 
 int _alloc_JsonElement(JsonValue * jd, void * data)
@@ -190,12 +222,12 @@ bool _set_value(JsonObject * obj, char * key, void* data, JsonDataType type)
     {
         while (*key != node->letter)
         {
-            if (!node->sibling)
+            if (node->sibling == DEFAULT_OBJECT_ADDRESS)
             {
                 JsonNode * sibling = _json_alloc(sizeof(JsonNode), alignof(JsonNode));
                 _set_default_JsonNode(sibling);
                 sibling->letter = *key;
-                node->sibling = ((int8_t *) sibling - buffer.start);
+                node->sibling = ((u_int8_t *) sibling - buffer.start);
             }
             node = (JsonNode*)(buffer.start + node->sibling);
         }
@@ -207,12 +239,12 @@ bool _set_value(JsonObject * obj, char * key, void* data, JsonDataType type)
         // Otherwise traverse sideways until a matching letter is found
         while (*key != node->letter)
         {
-            if (!node->sibling)
+            if (node->sibling == DEFAULT_OBJECT_ADDRESS)
             {
                 JsonNode * sibling = _json_alloc(sizeof(JsonNode), alignof(JsonNode));
                 _set_default_JsonNode(sibling);
                 sibling->letter = *key;
-                node->sibling = ((int8_t *) sibling - buffer.start);
+                node->sibling = ((u_int8_t *) sibling - buffer.start);
             }
             node = (JsonNode*)(buffer.start + node->sibling);
         }
@@ -222,17 +254,17 @@ bool _set_value(JsonObject * obj, char * key, void* data, JsonDataType type)
         // added to. If node, then traverse one node down, creating a new node
         // if it does not already exist.
         key++;
-        if (!node->child)
+        if (node->child == DEFAULT_OBJECT_ADDRESS)
         {
             JsonNode * child = _json_alloc(sizeof(JsonNode), alignof(JsonNode));
             _set_default_JsonNode(child);
             child->letter = *key;
-            node->child = ((int8_t *) child - buffer.start);
+            node->child = ((u_int8_t *) child - buffer.start);
         }
         node = (JsonNode*)(buffer.start + node->child);
     }
 
-    node->data = ((int8_t *) value - buffer.start);
+    node->data = ((u_int8_t *) value - buffer.start);
     return true;
 }
 
@@ -266,17 +298,17 @@ bool set_value_array(JsonObject * obj, char * key, JsonArray * array)
     return _set_value(obj, key, array, JSON_ARRAY);
 }
 
-JsonArray * create_JsonArray(int16_t length)
+JsonArray * create_JsonArray(u_int16_t length)
 {
     JsonArray* j = _json_alloc(sizeof(JsonArray), alignof(JsonArray));
     j->length = length;
 
     JsonValue * elements = _json_alloc(sizeof(JsonValue) * length, alignof(JsonArray));
-    j->elements = ((int8_t *) elements - buffer.start);
+    j->elements = ((u_int8_t *) elements - buffer.start);
     return j;
 }
 
-int _set_element(JsonArray * j, int16_t index, void * data, JsonDataType type)
+int _set_element(JsonArray * j, u_int16_t index, void * data, JsonDataType type)
 {
     JsonValue *jd = &(((JsonValue*)(buffer.start + j->elements))[index]);
     jd->type = type;
@@ -284,37 +316,37 @@ int _set_element(JsonArray * j, int16_t index, void * data, JsonDataType type)
     return status;
 }
 
-bool set_element_null(JsonArray * j, int16_t index)
+bool set_element_null(JsonArray * j, u_int16_t index)
 {
     return _set_element(j, index, NULL, JSON_NULL);
 }
 
-bool set_element_string(JsonArray * j, int16_t index, char * str)
+bool set_element_string(JsonArray * j, u_int16_t index, char * str)
 {
     return _set_element(j, index, str, JSON_STRING);
 }
 
-bool set_element_bool(JsonArray * j, int16_t index, bool data)
+bool set_element_bool(JsonArray * j, u_int16_t index, bool data)
 {
     return _set_element(j, index, &data, JSON_BOOL);
 }
 
-bool set_element_float(JsonArray * j, int16_t index, float data)
+bool set_element_float(JsonArray * j, u_int16_t index, float data)
 {
     return _set_element(j, index, &data, JSON_FLOAT);
 }
 
-bool set_element_object(JsonArray * j, int16_t index, JsonObject * object)
+bool set_element_object(JsonArray * j, u_int16_t index, JsonObject * object)
 {
     return _set_element(j, index, object, JSON_OBJECT);
 }
 
-bool set_element_array(JsonArray * j, int16_t index, JsonArray * array)
+bool set_element_array(JsonArray * j, u_int16_t index, JsonArray * array)
 {
     return _set_element(j, index, array, JSON_ARRAY);
 }
 
-JsonValue get_element(JsonArray * j, int16_t index)
+JsonValue get_element(JsonArray * j, u_int16_t index)
 {
     if (index > j->length)
     {

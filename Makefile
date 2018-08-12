@@ -12,4 +12,4 @@ testing:
 	$(CC) -I $(LIB_DIR) $(JSON_FILES) test.c -o bin/test.out $(CFLAGS)
 
 debug:
-	$(CC) -g -I $(LIB_DIR) $(JSON_FILES) test.c -o bin/debug.out $(CFLAGS)
+	$(CC) -g -I $(LIB_DIR) $(JSON_FILES) test.c -o debug.out $(CFLAGS)

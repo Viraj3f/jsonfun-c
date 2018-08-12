@@ -31,18 +31,18 @@ bool set_value_array(JsonObject * obj, char * key, JsonArray * array);
 
 To create an array:
 ```C
-JsonArray * create_JsonArray(int16_t length);
+JsonArray * create_JsonArray(u_int16_t length);
 ```
 
 To get and set array eleements:
 ```C
-JsonValue get_element(JsonArray * j, int16_t index);
-bool set_element_null(JsonArray * j, int16_t index);
-bool set_element_string(JsonArray * j, int16_t index, char * str);
-bool set_element_bool(JsonArray * j, int16_t index, bool data);
-bool set_element_float(JsonArray * j, int16_t index, float data);
-bool set_element_object(JsonArray * j, int16_t index, JsonObject * object);
-bool set_element_array(JsonArray * j, int16_t index, JsonArray * array);
+JsonValue get_element(JsonArray * j, u_int16_t index);
+bool set_element_null(JsonArray * j, u_int16_t index);
+bool set_element_string(JsonArray * j, u_int16_t index, char * str);
+bool set_element_bool(JsonArray * j, u_int16_t index, bool data);
+bool set_element_float(JsonArray * j, u_int16_t index, float data);
+bool set_element_object(JsonArray * j, u_int16_t index, JsonObject * object);
+bool set_element_array(JsonArray * j, u_int16_t index, JsonArray * array);
 ```
 
 To dump a JsonObject to string:
@@ -148,6 +148,3 @@ size_t nBytes = dump_JsonObject(obj, buffer); // Number of bytes used not includ
 1. The size of the buffer is limited to 2^16 bytes (~65kB). In the future, it would be possible to keep the size of the buffer to 4.3 gigs, but that would increase the internal size of the object tree (essentially doubling it). This should work for now.
 2. Elements in the mempool are not "freed". For instance, if you call `set_value` on a key that already exists, the old JsonValue will not be removed/replaced from the mempool.
 3. Arrays are of a static size, whose elements have no guarantee of value until they are set. In order to change the size of an array, the only option would be to create a new array, and copy over the old elements to the new. However, ```set_element``` will overwrite a previous value.
-
-## Todo
-- Getting values whose keys aren't in the object doesn't error out as it should.

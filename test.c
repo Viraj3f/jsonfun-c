@@ -42,6 +42,12 @@ void test_construction()
     jd = get_value(j, "good bye");
     assert(jd.data.n == NULL);
 
+    jd = get_value(j, "goo");
+    assert(jd.data.e == MISSING_KEY);
+
+    jd = get_value(j, "NOTAVALIDKEY");
+    assert(jd.data.e == MISSING_KEY);
+
     set_value_bool(j, "good bye", b1);
     jd = get_value(j, "good bye");
     assert(jd.data.b == b1);

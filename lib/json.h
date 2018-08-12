@@ -47,15 +47,15 @@ typedef struct JsonValue
 } JsonValue;
 
 typedef struct JsonArray {
-    int16_t length;
-    int16_t elements;
+    u_int16_t length;
+    u_int16_t elements;
 } JsonArray;
 
 typedef struct JsonNode
 {
-    int16_t child;
-    int16_t sibling;
-    int16_t data;
+    u_int16_t child;
+    u_int16_t sibling;
+    u_int16_t data;
     unsigned char letter;
 } JsonNode;
 
@@ -81,14 +81,14 @@ bool set_value_object(JsonObject * obj, char * key, JsonObject * object);
 bool set_value_array(JsonObject * obj, char * key, JsonArray * array);
 
 // Function for creating json arrays
-JsonArray * create_JsonArray(int16_t length);
-JsonValue get_element(JsonArray * j, int16_t index);
-bool set_element_null(JsonArray * j, int16_t index);
-bool set_element_string(JsonArray * j, int16_t index, char * str);
-bool set_element_bool(JsonArray * j, int16_t index, bool data);
-bool set_element_float(JsonArray * j, int16_t index, float data);
-bool set_element_object(JsonArray * j, int16_t index, JsonObject * object);
-bool set_element_array(JsonArray * j, int16_t index, JsonArray * array);
+JsonArray * create_JsonArray(u_int16_t length);
+JsonValue get_element(JsonArray * j, u_int16_t index);
+bool set_element_null(JsonArray * j, u_int16_t index);
+bool set_element_string(JsonArray * j, u_int16_t index, char * str);
+bool set_element_bool(JsonArray * j, u_int16_t index, bool data);
+bool set_element_float(JsonArray * j, u_int16_t index, float data);
+bool set_element_object(JsonArray * j, u_int16_t index, JsonObject * object);
+bool set_element_array(JsonArray * j, u_int16_t index, JsonArray * array);
 
 // For dumping and parsing
 bool parse_JsonObject(char* input, JsonObject** parsed);
