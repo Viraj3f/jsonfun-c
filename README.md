@@ -5,12 +5,12 @@ The funnest little json parsing and serialization C library in the world. Lightw
 
 This library supports C99+, but one would ideally be using C11.
 
-## Overview
+## API Overview
 This library is designed for ease of use.
 
 To allocate mempool for JSON object.
 ```C
-void Json_set_mempool(void * start, void * end);
+void Json_set_mempool(void * start, size_t size);
 ```
 
 To create a JSON object:
@@ -21,7 +21,12 @@ JsonObject* create_JsonObject(void);
 To get and set an values from a JSON object:
 ```C
 JsonValue get_value(JsonObject * obj, char * key);
-int set_value(JsonObject * obj, char * key, void* data, JsonDataType type);
+bool set_value_null(JsonObject * obj, char * key);
+bool set_value_string(JsonObject * obj, char * key, char * str);
+bool set_value_bool(JsonObject * obj, char * key, bool data);
+bool set_value_float(JsonObject * obj, char * key, float data);
+bool set_value_object(JsonObject * obj, char * key, JsonObject * object);
+bool set_value_array(JsonObject * obj, char * key, JsonArray * array);
 ```
 
 To create an array:
@@ -31,8 +36,13 @@ JsonArray * create_JsonArray(int16_t length);
 
 To get and set array eleements:
 ```C
-int set_element(JsonArray * j, int16_t index, void * data, JsonDataType type);
 JsonValue get_element(JsonArray * j, int16_t index);
+bool set_element_null(JsonArray * j, int16_t index);
+bool set_element_string(JsonArray * j, int16_t index, char * str);
+bool set_element_bool(JsonArray * j, int16_t index, bool data);
+bool set_element_float(JsonArray * j, int16_t index, float data);
+bool set_element_object(JsonArray * j, int16_t index, JsonObject * object);
+bool set_element_array(JsonArray * j, int16_t index, JsonArray * array);
 ```
 
 To dump a JsonObject to string:
@@ -40,9 +50,9 @@ To dump a JsonObject to string:
 size_t dump_JsonObject(JsonObject *o, char* destination);
 ```
 
-To parse a JsonObject from string (Not yet implemented)
+To parse a JsonObject from string.
 ```C
-JsonObject* parse_JsonObject();
+bool parse_JsonObject(char* input, JsonObject** parsed);
 ```
 
 ## Example
@@ -52,8 +62,9 @@ Typically, ~1 word per byte in a Json string. This can be done on stack or heap.
 
 ```C
 #define MEMPOOL_SIZE 1024
+
 char mempool[MEMPOOL_SIZE];
-Json_set_mempool(mempool, &mempool[MEMPOOL_SIZE - 1]);
+Json_set_mempool(mempool, MEMPOOL_SIZE);
 ```
 
 ### Parsing
@@ -71,7 +82,8 @@ Assume the JSON object is:
 ```
 
 ```C
-JsonObject* obj = parse_JsonObject(jsonStr)       // Assume the json string was read. I.e. from a gile.
+JsonObject* obj;
+parse_JsonObject(jsonStr, &obj)       // Assume the json string was read. I.e. from a gile.
 
 JsonValue hi = get_value(obj, "hi");
 hi.data.i;                                        // 123
@@ -111,20 +123,18 @@ The goal is to create the following JSON object:
 ```C
 // Add intData
 int i = 32;
-set_value(inner, "intData", &i, JSON_INT);
+set_value_int(inner, "intData", 32);
 
 
 // Object Nesting
 JsonObject* innerInner = create_JsonObject();
-set_value(inner, "inner", innerInner, JSON_OBJECT)
+set_value_object(inner, "inner", innerInner)
 
 // Arrays
 JsonArray* innerInnerArray = create_JsonArray(2);
-bool b1 = true;
-bool b2 = false;
-set_element(innerInnerArray, 0, &b1, JSON_BOOL);
-set_element(innerInnerArray, 1, &b2, JSON_BOOL);
-set_value(innerInner, "vals", innerInnerArray, JSON_ARRAY);
+set_element_bool(innerInnerArray, 0, true);
+set_element_bool(innerInnerArray, 1, false);
+set_value_array(innerInner, "vals", innerInnerArray);
 ```
 
 ### Dump

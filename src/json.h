@@ -71,7 +71,7 @@ void Json_set_mempool(void * start, size_t size);
 void Json_reset_mempool();
 
 // Functions for creating json objects
-JsonObject* create_JsonObject(void);
+JsonObject * create_JsonObject(void);
 JsonValue get_value(JsonObject * obj, char * key);
 bool set_value_null(JsonObject * obj, char * key);
 bool set_value_string(JsonObject * obj, char * key, char * str);
