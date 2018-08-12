@@ -44,10 +44,10 @@ void Json_reset_mempool()
 
 void * _json_alloc(size_t size, size_t alignment) 
 {
-    // If the mempool has not been set, then just use malloc/free
     if (!buffer.end)
     {
-        return malloc(size);
+        printf("Mempool not allocated.\n");
+        return NULL;
     }
 
     // Alignment
@@ -394,15 +394,29 @@ typedef struct _Dumper
     _Stack valstack;
     _Stack bufend_stack;
     _Stack objIndex_stack;
+    _Stack dump_stack;
     char * destination;
     char * key_buffer;
 } _Dumper;
+
+enum JsonDumpTypes
+{
+    Dump_JsonValue,
+    Dump_JsonObject,
+    Dump_JsonArray,
+    Dump_JsonObject_Key
+};
 
 char _JSON_NULL_STR[] = "null";
 char _JSON_FALSE_STR[] = "false";
 char _JSON_TRUE_STR[] = "true";
 
-char* _dump_JsonObject_Key(_Dumper * dumper, int bufStart, int bufEnd)
+void _dump_JsonObject(JsonObject *o, _Dumper* dumper);
+void _dump_JsonValue(JsonValue *value, _Dumper* dumper);
+void _dump_JsonArray(JsonArray *ary, _Dumper* dumper);
+void _dump_JsonObject_Key(_Dumper * dumper, int bufStart, int bufEnd);
+
+void _dump_JsonObject_Key(_Dumper * dumper, int bufStart, int bufEnd)
 {
     *(dumper->destination++) = '"'; 
     for (int i = bufStart; i <= bufEnd; i++)
@@ -411,15 +425,9 @@ char* _dump_JsonObject_Key(_Dumper * dumper, int bufStart, int bufEnd)
     }
     *(dumper->destination++) = '"'; 
     *(dumper->destination++) = ':'; 
-
-    return dumper->destination;
 }
 
-char* _dump_JsonObject(JsonObject *o, _Dumper* dumper);
-
-char* _dump_JsonValue(JsonValue *value, _Dumper* dumper);
-
-char* _dump_JsonArray(JsonArray *ary, _Dumper* dumper)
+void _dump_JsonArray(JsonArray *ary, _Dumper* dumper)
 {
     *(dumper->destination++) = '[';
     for (int i = 0; i < ary->length; i++)
@@ -433,60 +441,17 @@ char* _dump_JsonArray(JsonArray *ary, _Dumper* dumper)
         switch (element->type)
         {
             case JSON_OBJECT:
-                dumper->destination = _dump_JsonObject(element->data.o, dumper);
+                _dump_JsonObject(element->data.o, dumper);
                 break;
             default:
-                dumper->destination = _dump_JsonValue(element, dumper);
+                _dump_JsonValue(element, dumper);
                 break;
         }
     }
     *(dumper->destination++) = ']';
-    return dumper->destination;
 }
 
-void strcpyescaped(char * source, char * destination)
-{
-    while (*source)
-    {
-        switch (*source)
-        {
-            case '"':
-                *(destination++) = '\\';
-                *(destination++) = '"';
-                break;
-            case '\\':
-                *(destination++) = '\\';
-                *(destination++) = '\\';
-                break;
-            case '\b':
-                *(destination++) = '\\';
-                *(destination++) = 'b';
-                break;
-            case '\f':
-                *(destination++) = '\\';
-                *(destination++) = 'f';
-                break;
-            case '\n':
-                *(destination++) = '\\';
-                *(destination++) = 'n';
-                break;
-            case '\r':
-                *(destination++) = '\\';
-                *(destination++) = 'r';
-                break;
-            case '\t':
-                *(destination++) = '\\';
-                *(destination++) = 't';
-                break;
-            default:
-                *destination = *source;
-                break;
-        }
-        source++;
-    }
-}
-
-char * _dump_JsonValue(JsonValue* value, _Dumper* dumper)
+void _dump_JsonValue(JsonValue* value, _Dumper* dumper)
 {
     switch (value->type)
     {
@@ -506,11 +471,8 @@ char * _dump_JsonValue(JsonValue* value, _Dumper* dumper)
             while (*str) *(dumper->destination++) = *(str++);
             break;
         case JSON_FLOAT:
-        {
-            int len = sprintf(dumper->destination, "%g", value->data.f);
-            dumper->destination += len;
+            dumper->destination += sprintf(dumper->destination, "%g", value->data.f);
             break;
-        }
         case JSON_OBJECT:
             push_int(&dumper->objIndex_stack, dumper->valstack.stacktop);
             push_ptr(&dumper->valstack, &(value->data.o->node));
@@ -518,18 +480,14 @@ char * _dump_JsonValue(JsonValue* value, _Dumper* dumper)
             *(dumper->destination++) = '{';
             break;
         case JSON_ARRAY:
-        {
-            dumper->destination = _dump_JsonArray(value->data.a, dumper);
+            _dump_JsonArray(value->data.a, dumper);
             break;
-        }
         default:
             break;
     }
-    return dumper->destination;
 }
 
-char*
-_dump_JsonObject(JsonObject *o, _Dumper * dumper)
+void _dump_JsonObject(JsonObject *o, _Dumper * dumper)
 {
     push_int(&dumper->objIndex_stack, dumper->valstack.stacktop);
     push_ptr(&dumper->valstack, &(o->node));
@@ -569,9 +527,9 @@ _dump_JsonObject(JsonObject *o, _Dumper * dumper)
                 *(dumper->destination++) = ',';
             }
 
-            dumper->destination = _dump_JsonObject_Key(dumper, 0, strIndex - 1 );
+            _dump_JsonObject_Key(dumper, 0, strIndex - 1 );
             JsonValue* value = (JsonValue*)(buffer.start + node->data);
-            dumper->destination = _dump_JsonValue(value, dumper);
+            _dump_JsonValue(value, dumper);
         }
 
         if (dumper->valstack.stacktop == peek_int(&dumper->objIndex_stack))
@@ -587,8 +545,6 @@ _dump_JsonObject(JsonObject *o, _Dumper * dumper)
         *(dumper->destination++) = '}';
         pop_int(&dumper->objIndex_stack);
     }
-
-    return dumper->destination;
 }
 
 size_t dump_JsonObject(JsonObject* o, char* destination)
@@ -601,10 +557,10 @@ size_t dump_JsonObject(JsonObject* o, char* destination)
     dumper.bufend_stack.stacktop = -1;
     dumper.objIndex_stack.stacktop = -1;
 
-    char* end = _dump_JsonObject(o, &dumper);
-    *end = '\0';
+    _dump_JsonObject(o, &dumper);
+    *(dumper.destination) = '\0';
     
-    return end - destination;
+    return dumper.destination - destination;
 }
 
 typedef struct _Parser

@@ -322,7 +322,7 @@ int main()
     test_parsing();
 
     time_t end = time(NULL);
-    printf("Elapsed %f\n", difftime(end, start));
+    printf("Elapsed %f\n", (double)difftime(end, start));
     
     return 0;
 }
